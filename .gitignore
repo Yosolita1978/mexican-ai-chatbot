@@ -1,0 +1,8 @@
+venv/
+backend/.venv
+.env
+__pycache__/
+*.pyc
+data/recipe_vectors/
+.DS_Store
+backend/.env
