@@ -42,13 +42,11 @@ def extract_recipe_metadata(text: str) -> Dict:
     
     recipe_name = None
     
-    # Pattern for "Receta: NAME" format
     receta_pattern = r'Receta:\s*([A-ZÁÉÍÓÚÑ\(\)\s]+?)(?:\n|Porciones)'
     receta_match = re.search(receta_pattern, text, re.IGNORECASE)
     if receta_match:
         recipe_name = receta_match.group(1).strip()
     
-    # Fallback: look for "Receta: " at start of line
     if not recipe_name or recipe_name == "":
         lines = text.split('\n')
         for line in lines[:10]:
@@ -57,7 +55,6 @@ def extract_recipe_metadata(text: str) -> Dict:
                 recipe_name = cleaned_line.replace('Receta:', '').strip()
                 break
     
-    # Clean up the recipe name
     if recipe_name:
         recipe_name = ' '.join(recipe_name.split())
         recipe_name = recipe_name.replace('*', '').strip()
@@ -66,21 +63,17 @@ def extract_recipe_metadata(text: str) -> Dict:
         if recipe_name and len(recipe_name) > 2:
             metadata["recipe_name"] = recipe_name
     
-    # Extract servings
     servings_pattern = r'Porciones?:\s*(\d+)'
     servings_match = re.search(servings_pattern, text, re.IGNORECASE)
     if servings_match:
         metadata["servings"] = int(servings_match.group(1))
     
-    # Check for ingredients section
     if re.search(r'Ingredientes?:', text, re.IGNORECASE):
         metadata["has_ingredients"] = True
     
-    # Check for instructions section
     if re.search(r'Modo de preparaci[oó]n|Preparaci[oó]n|Instrucciones', text, re.IGNORECASE):
         metadata["has_instructions"] = True
     
-    # Detect recipe type
     recipe_name_lower = metadata["recipe_name"].lower()
     content_lower = text.lower()
     
@@ -209,8 +202,22 @@ def parse_recipes_from_pdf(documents):
     return recipes
 
 def create_recipe_chunks(recipes: List[Dict]):
-    """Split recipes into optimal chunks while preserving metadata"""
+    """Split recipes into optimal chunks while preserving metadata and cleaning text"""
     print("✂️  Splitting recipes into chunks...")
+    
+    cleaned_recipes = []
+    for recipe in recipes:
+        text = recipe["text"]
+        text = ' '.join(text.split())
+        text = text.replace(' Ingredientes: ', '\n\nIngredientes:\n')
+        text = text.replace(' Modo de preparación ', '\n\nModo de preparación:\n')
+        text = text.replace(' Porciones: ', '\n\nPorciones: ')
+        text = text.replace(' Receta: ', '\n\nReceta: ')
+        
+        cleaned_recipes.append({
+            "text": text,
+            "metadata": recipe["metadata"]
+        })
     
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
@@ -221,7 +228,7 @@ def create_recipe_chunks(recipes: List[Dict]):
     
     all_chunks = []
     
-    for recipe in recipes:
+    for recipe in cleaned_recipes:
         chunks = text_splitter.split_text(recipe["text"])
         
         for i, chunk in enumerate(chunks):
@@ -281,8 +288,8 @@ def load_vector_store():
         print("🔨 Creating new vector store...")
         return create_vector_store()
 
-def search_recipes(query: str, k: int = 3, recipe_type: str = None):
-    """Search for recipes using similarity search with optional filtering"""
+def search_recipes(query: str, k: int = 1, recipe_type: str = None):
+    """Search for recipes using similarity search - returns only best match"""
     vector_store = load_vector_store()
     
     if recipe_type:
@@ -308,25 +315,23 @@ def search_recipes(query: str, k: int = 3, recipe_type: str = None):
     return formatted_results
 
 def format_search_results_for_chat(results: List[dict]):
-    """Format search results for chat response"""
+    """Format search results for chat response - returns ONE complete recipe"""
     if not results:
         return "No recipes found for your query. Try asking about different ingredients or dishes!"
     
-    formatted = "Here are the recipes I found:\n\n"
+    result = results[0]
+    recipe_name = result.get('recipe_name', 'Unknown Recipe')
+    servings = result.get('servings')
+    recipe_type = result.get('recipe_type', 'general')
+    content = result['content']
     
-    for i, result in enumerate(results, 1):
-        recipe_name = result.get('recipe_name', 'Unknown Recipe')
-        servings = result.get('servings')
-        recipe_type = result.get('recipe_type', 'general')
-        content = result['content'][:400]
-        
-        formatted += f"**{i}. {recipe_name}**\n"
-        if servings:
-            formatted += f"*Servings: {servings} | Type: {recipe_type}*\n\n"
-        else:
-            formatted += f"*Type: {recipe_type}*\n\n"
-        formatted += f"{content}...\n\n"
-        formatted += "---\n\n"
+    formatted = f"**{recipe_name}**\n\n"
+    if servings:
+        formatted += f"*Servings: {servings} | Type: {recipe_type}*\n\n"
+    else:
+        formatted += f"*Type: {recipe_type}*\n\n"
+    
+    formatted += content
     
     return formatted
 
@@ -348,7 +353,7 @@ def test_vector_store():
         filter_msg = f" (filtered by: {filter_type})" if filter_type else ""
         print(f"\n🔍 Testing query: '{query}'{filter_msg}")
         
-        results = search_recipes(query, k=2, recipe_type=filter_type)
+        results = search_recipes(query, k=1, recipe_type=filter_type)
         
         if results:
             print(f"✅ Found {len(results)} results")
