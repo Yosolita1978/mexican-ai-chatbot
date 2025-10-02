@@ -43,7 +43,7 @@ export default function Home() {
       setError('Failed to connect to recipe service.');
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: '¡Ay no! I ran into a little problem. Can you try asking that again, mijo?' 
+        content: '¡Ay no! I ran into a little problem. Can you try asking that again?' 
       }]);
     } finally {
       setLoading(false);
@@ -69,6 +69,40 @@ export default function Home() {
   const formatMessage = (content: string) => {
     const lines = content.split('\n');
     return lines.map((line, index) => {
+      if (line.startsWith('VIDEO:')) {
+        const videoId = line.replace('VIDEO:', '').trim();
+        return (
+          <div key={index} className="my-4 rounded-xl overflow-hidden shadow-lg border-2 border-fulvous">
+            <iframe
+              width="100%"
+              height="315"
+              src={`https://www.youtube.com/embed/${videoId}`}
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              className="w-full aspect-video"
+            ></iframe>
+          </div>
+        );
+      }
+      
+      if (line.startsWith('IMAGE:')) {
+        const imageUrl = line.replace('IMAGE:', '').trim();
+        return (
+          <div key={index} className="my-4 rounded-xl overflow-hidden shadow-lg border-2 border-fulvous">
+            <img
+              src={imageUrl}
+              alt="Food image"
+              className="w-full h-auto object-cover max-h-96"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+        );
+      }
+      
       if (line.startsWith('**') && line.endsWith('**')) {
         const text = line.replace(/\*\*/g, '');
         return <h3 key={index} className="text-base sm:text-lg font-bold text-turkey-red mt-3 sm:mt-4 mb-2">{text}</h3>;
@@ -90,14 +124,13 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>{t.title} - {t.subtitle}</title>
+        <title>{`${t.title} - ${t.subtitle}`}</title>
         <meta name="description" content="Authentic Mexican recipes from the García family" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <link rel="icon" href="/logo.png" />
       </Head>
 
       <div className="flex h-screen bg-ghost-white overflow-hidden">
-        {/* Mobile Overlay */}
         {sidebarOpen && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 z-40 xl:hidden"
@@ -105,7 +138,6 @@ export default function Home() {
           />
         )}
 
-        {/* Sidebar */}
         <aside className={`
           fixed xl:relative
           top-0 left-0 h-full
@@ -117,7 +149,6 @@ export default function Home() {
           z-50
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}
         `}>
-          {/* Close button (mobile/tablet only) */}
           <button
             onClick={() => setSidebarOpen(false)}
             className="xl:hidden absolute top-4 right-4 text-cornsilk hover:text-fulvous z-10"
@@ -127,7 +158,6 @@ export default function Home() {
             </svg>
           </button>
 
-          {/* Logo Header */}
           <div className="p-4 sm:p-6 border-b-2 border-fulvous">
             <div className="flex items-center gap-3 mb-4">
               <Image 
@@ -143,7 +173,6 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Language Toggle */}
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setLanguage('en')}
@@ -167,7 +196,6 @@ export default function Home() {
               </button>
             </div>
 
-            {/* Clear Conversation Button */}
             {messages.length > 0 && (
               <button
                 onClick={handleClearConversation}
@@ -178,7 +206,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Signature Recipe Buttons */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             <h2 className="text-xs sm:text-sm font-bold text-fulvous mb-4 uppercase tracking-wide">
               {t.signatureRecipes}
@@ -210,7 +237,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Footer */}
           <div className="p-4 sm:p-6 border-t-2 border-fulvous">
             <p className="text-xs text-cornsilk text-center">
               {t.footerText}
@@ -218,11 +244,8 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* Main Chat Area */}
         <main className="flex-1 flex flex-col min-w-0">
-          {/* Chat Header */}
           <header className="bg-white border-b-2 border-cornsilk p-3 sm:p-4 shadow-sm flex items-center gap-3">
-            {/* Hamburger Menu (mobile/tablet only) */}
             <button
               onClick={() => setSidebarOpen(true)}
               className="xl:hidden text-oxford-blue hover:text-turkey-red p-2"
@@ -242,7 +265,6 @@ export default function Home() {
             </div>
           </header>
 
-          {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-ghost-white">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full px-4">
@@ -311,7 +333,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Input Area - Fixed at bottom on mobile */}
           <footer className="bg-white border-t-2 border-cornsilk p-3 sm:p-4 safe-bottom">
             <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
               <div className="flex gap-2 sm:gap-3">
