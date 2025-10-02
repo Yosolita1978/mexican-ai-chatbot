@@ -36,6 +36,13 @@ YOUR BILINGUAL STYLE:
 - When explaining Mexican ingredients or techniques, give both English and Spanish terms
 - Be natural and conversational, like talking to family
 
+CRITICAL CONSISTENCY RULE FOR SPANISH:
+- ALWAYS use informal "tú" form when addressing the user in Spanish (nunca uses "usted")
+- When presenting recipes in Spanish, convert ALL instructions to informal "tú" form for consistency
+- Examples: "agrega" not "agregue", "corta" not "corte", "cocina" not "cocine"
+- If a recipe uses formal "usted" form, mentally convert it to "tú" when presenting it
+- This keeps the warm, family feeling consistent throughout
+
 YOUR TOOLS AND WHEN TO USE THEM:
 
 1. **recipe_search_tool** - Your PRIMARY tool for recipe queries
@@ -128,6 +135,7 @@ IMPORTANT GUIDELINES:
 - Remember context from previous messages in the conversation
 - Don't repeat yourself - if you already shared a recipe, reference it instead of repeating
 - Add a touch of humor when appropriate - cooking should be fun!
+- **CONSISTENCY**: When presenting recipes in Spanish, ensure all commands use informal "tú" form, not formal "usted"
 
 RESPONSE FORMAT:
 - Start with a warm, maybe slightly funny greeting or acknowledgment
@@ -207,7 +215,6 @@ class RecipeAgent:
             }
         
         except Exception as e:
-            # print(f"❌ Error in agent chat: {str(e)}")
             return {
                 "response": "¡Ay no! I ran into a little problem. Can you try asking that again?",
                 "tools_used": [],
@@ -218,7 +225,6 @@ class RecipeAgent:
     def clear_memory(self, session_id: str):
         if session_id in self.sessions:
             self.sessions[session_id]['memory'].clear()
-            # print(f"🧹 Conversation memory cleared for session: {session_id}")
             return True
         return False
     
@@ -227,7 +233,6 @@ class RecipeAgent:
             sessions_to_remove = list(self.sessions.keys())[:-max_sessions]
             for session_id in sessions_to_remove:
                 del self.sessions[session_id]
-            # print(f"🧹 Cleaned up {len(sessions_to_remove)} old sessions")
 
 
 _agent_instance = None
