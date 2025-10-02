@@ -4,6 +4,21 @@ import Image from 'next/image';
 import { agentChat, clearAgentMemory } from '@/lib/api';
 import { translations, detectLanguage, Language } from '@/lib/translations';
 
+const LOADING_MESSAGES = {
+  en: [
+    "🔍 Searching recipes...",
+    "📖 Consulting collection...",
+    "👨‍🍳 Preparing answer...",
+    "✨ Almost ready..."
+  ],
+  es: [
+    "🔍 Buscando recetas...",
+    "📖 Consultando colección...",
+    "👨‍🍳 Preparando respuesta...",
+    "✨ Casi listo..."
+  ]
+};
+
 export default function Home() {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
@@ -13,21 +28,6 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const loadingMessages = {
-    en: [
-      "🔍 Searching recipes...",
-      "📖 Consulting collection...",
-      "👨‍🍳 Preparing answer...",
-      "✨ Almost ready..."
-    ],
-    es: [
-      "🔍 Buscando recetas...",
-      "📖 Consultando colección...",
-      "👨‍🍳 Preparando respuesta...",
-      "✨ Casi listo..."
-    ]
-  };
 
   useEffect(() => {
     setLanguage(detectLanguage());
@@ -43,7 +43,7 @@ export default function Home() {
       setLoadingMessage(0);
       interval = setInterval(() => {
         setLoadingMessage(prev => {
-          const maxIndex = loadingMessages[language].length - 1;
+          const maxIndex = LOADING_MESSAGES[language].length - 1;
           return prev < maxIndex ? prev + 1 : maxIndex;
         });
       }, 1800);
@@ -125,6 +125,7 @@ export default function Home() {
         const imageUrl = imageMatch[2];
         return (
           <div key={index} className="my-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageUrl}
               alt={altText}
@@ -356,7 +357,7 @@ export default function Home() {
                         </div>
                         <div className="flex flex-col">
                           <p className="text-xs sm:text-sm font-medium text-oxford-blue">
-                            {loadingMessages[language][loadingMessage]}
+                            {LOADING_MESSAGES[language][loadingMessage]}
                           </p>
                           <div className="flex items-center space-x-1 mt-1">
                             <div className="w-1.5 h-1.5 bg-fulvous rounded-full animate-bounce"></div>
