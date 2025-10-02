@@ -57,13 +57,13 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (!query.trim()) return;
 
     const userMessage = query.trim();
     setQuery('');
     setError(null);
-
+    
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
 
@@ -73,9 +73,9 @@ export default function Home() {
     } catch (err) {
       console.error('Error chatting with agent:', err);
       setError('Failed to connect to recipe service.');
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: '¡Ay no! I ran into a little problem. Can you try asking that again, mijo?'
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: '¡Ay no! I ran into a little problem. Can you try asking that again, mijo?' 
       }]);
     } finally {
       setLoading(false);
@@ -119,7 +119,7 @@ export default function Home() {
           </div>
         );
       }
-
+      
       // Check for markdown image format: ![alt](url)
       const imageMatch = line.match(/!\[([^\]]*)\]\(([^)]+)\)/);
       if (imageMatch) {
@@ -136,7 +136,7 @@ export default function Home() {
           </div>
         );
       }
-
+      
       if (line.startsWith('**') && line.endsWith('**')) {
         const text = line.replace(/\*\*/g, '');
         return <h3 key={index} className="text-base sm:text-lg font-bold text-turkey-red mt-3 sm:mt-4 mb-2">{text}</h3>;
@@ -160,14 +160,14 @@ export default function Home() {
       <Head>
         <title>{`${t.title} - ${t.subtitle}`}</title>
         <meta name="description" content="Authentic Mexican recipes from the García family" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         <link rel="icon" href="/logo.png" />
       </Head>
 
       <div className="flex h-screen bg-ghost-white overflow-hidden">
         {/* Mobile Overlay */}
         {sidebarOpen && (
-          <div
+          <div 
             className="fixed inset-0 bg-black bg-opacity-50 z-40 xl:hidden"
             onClick={() => setSidebarOpen(false)}
           />
@@ -198,10 +198,10 @@ export default function Home() {
           {/* Logo Header */}
           <div className="p-4 sm:p-6 border-b-2 border-fulvous">
             <div className="flex items-center gap-3 mb-4">
-              <Image
-                src="/logo.png"
+              <Image 
+                src="/logo.png" 
                 alt={t.title}
-                width={50}
+                width={50} 
                 height={50}
                 className="rounded-lg sm:w-[60px] sm:h-[60px]"
               />
@@ -210,24 +210,26 @@ export default function Home() {
                 <p className="text-xs text-fulvous">{t.subtitle}</p>
               </div>
             </div>
-
+            
             {/* Language Toggle */}
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setLanguage('en')}
-                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors ${language === 'en'
-                    ? 'bg-fulvous text-white'
+                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors ${
+                  language === 'en' 
+                    ? 'bg-fulvous text-white' 
                     : 'bg-oxford-blue text-cornsilk border border-fulvous hover:bg-turkey-red'
-                  }`}
+                }`}
               >
                 English
               </button>
               <button
                 onClick={() => setLanguage('es')}
-                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors ${language === 'es'
-                    ? 'bg-fulvous text-white'
+                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors ${
+                  language === 'es' 
+                    ? 'bg-fulvous text-white' 
                     : 'bg-oxford-blue text-cornsilk border border-fulvous hover:bg-turkey-red'
-                  }`}
+                }`}
               >
                 Español
               </button>
@@ -309,14 +311,14 @@ export default function Home() {
           </header>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-ghost-white">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-ghost-white pb-4">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full px-4">
                 <div className="text-center max-w-md">
-                  <Image
-                    src="/logo.png"
+                  <Image 
+                    src="/logo.png" 
                     alt={t.title}
-                    width={100}
+                    width={100} 
                     height={100}
                     className="mx-auto mb-4 sm:mb-6 rounded-xl sm:w-[120px] sm:h-[120px]"
                   />
@@ -336,10 +338,11 @@ export default function Home() {
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
                   >
                     <div
-                      className={`max-w-[85%] sm:max-w-2xl rounded-2xl px-4 py-3 sm:px-6 sm:py-4 ${message.role === 'user'
+                      className={`max-w-[85%] sm:max-w-2xl rounded-2xl px-4 py-3 sm:px-6 sm:py-4 ${
+                        message.role === 'user'
                           ? 'bg-fulvous text-white'
                           : 'bg-cornsilk text-oxford-blue border-2 border-fulvous'
-                        }`}
+                      }`}
                     >
                       {message.role === 'user' ? (
                         <p className="text-sm sm:text-base">{message.content}</p>
@@ -356,8 +359,8 @@ export default function Home() {
                     <div className="bg-cornsilk rounded-2xl px-4 py-4 sm:px-6 sm:py-5 border-2 border-fulvous">
                       <div className="flex items-center space-x-3">
                         <div className="relative">
-                          <Image
-                            src="/logo.png"
+                          <Image 
+                            src="/logo.png" 
                             alt="Loading"
                             width={32}
                             height={32}
@@ -382,7 +385,7 @@ export default function Home() {
                 <div ref={messagesEndRef} />
               </div>
             )}
-
+            
             {error && (
               <div className="max-w-4xl mx-auto mt-4 animate-fadeIn">
                 <div className="bg-turkey-red text-white rounded-lg p-3 sm:p-4">
@@ -393,8 +396,14 @@ export default function Home() {
             )}
           </div>
 
-          {/* Input Area - Fixed at bottom on mobile */}
-          <footer className="bg-white border-t-2 border-cornsilk p-3 sm:p-4 safe-bottom">
+          {/* Input Area - Fixed at bottom on mobile with proper spacing */}
+          <footer 
+            className="bg-white border-t-2 border-cornsilk"
+            style={{ 
+              padding: '12px',
+              paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 24px)'
+            }}
+          >
             <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
               <div className="flex gap-2 sm:gap-3">
                 <input
