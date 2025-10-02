@@ -1,5 +1,5 @@
 """
-Mexican Recipe Chatbot API
+SazónBot API
 A FastAPI application for searching Mexican recipes using AI
 """
 

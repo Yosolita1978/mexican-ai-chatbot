@@ -5,4 +5,22 @@
 body {
   margin: 0;
   padding: 0;
+  overflow: hidden;
+}
+
+/* Safe area for mobile devices (iPhone notch, etc.) */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Prevent iOS zoom on input focus */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }

@@ -6,6 +6,7 @@ import uvicorn
 from app.config import APP_NAME, APP_VERSION, OPENAI_API_KEY
 from app.models import HealthResponse, RecipeSearchRequest, RecipeSearchResponse, ChatRequest
 from app.vector_store import search_recipes, format_search_results_for_chat, get_vector_store_info
+from app.agent import get_agent
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -79,7 +80,10 @@ async def test_config():
             "/docs",
             "/test/config",
             "/search-recipes",
-            "/chat-search/{query}"
+            "/chat-search/{query}",
+            "/chat",
+            "/agent-chat",
+            "/agent-chat/clear"
         ]
     }
 
@@ -148,6 +152,52 @@ async def chat_endpoint(request: ChatRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error processing chat message: {str(e)}"
+        )
+
+@app.post("/agent-chat")
+async def agent_chat_endpoint(request: ChatRequest):
+    """
+    Agent-powered chat endpoint for intelligent recipe conversations
+    Uses LangChain agent with memory and multiple tools
+    
+    - **message**: User message to the chatbot
+    
+    Returns intelligent response with context awareness and tool usage
+    """
+    try:
+        # Get the agent instance
+        agent = get_agent()
+        
+        # Chat with the agent
+        result = agent.chat(request.message)
+        
+        return {
+            "response": result["response"],
+            "sources_used": result.get("tools_used", [])
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing agent chat: {str(e)}"
+        )
+
+@app.post("/agent-chat/clear")
+async def clear_agent_memory():
+    """
+    Clear the agent's conversation memory
+    Useful for starting a fresh conversation
+    """
+    try:
+        agent = get_agent()
+        agent.clear_memory()
+        return {
+            "status": "success",
+            "message": "Conversation memory cleared"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error clearing memory: {str(e)}"
         )
 
 @app.get("/recipes/types")

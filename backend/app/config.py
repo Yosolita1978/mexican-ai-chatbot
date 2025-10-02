@@ -17,7 +17,7 @@ if not SERPER_API_KEY:
     print("⚠️  SERPER_API_KEY not found - will be needed for Day 2 web search functionality")
 
 # Application settings
-APP_NAME = "Mexican Recipe Chatbot"
+APP_NAME = "SazónBot"
 APP_VERSION = "1.0.0"
 DEBUG = True
 
