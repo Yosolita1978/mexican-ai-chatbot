@@ -4,8 +4,7 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
-      <script defer data-domain="sazonbot.vercel.app" src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"></script>
-<script>window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }</script>
+      <script defer data-domain="sazonbot.vercel.app" src="https://plausible.io/js/script.js"></script>
 
       </Head>
       <body className="antialiased">
