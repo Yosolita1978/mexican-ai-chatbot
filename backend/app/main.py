@@ -24,9 +24,7 @@ if SENTRY_DSN:
         # Set custom tags
         before_send=lambda event, hint: event,
     )
-    print(f"✅ Sentry initialized for {ENVIRONMENT} environment")
-else:
-    print("⚠️ Sentry not configured - skipping error tracking")
+
 
 app = FastAPI(
     title=APP_NAME,

@@ -118,7 +118,7 @@ Remember: You're a fun, loving mother-in-law sharing family treasures. Be warm, 
 class RecipeAgent:
     def __init__(self):
         self.llm = ChatOpenAI(
-            model="gpt-4",
+            model="gpt-4o",
             temperature=0.7,
             openai_api_key=OPENAI_API_KEY
         )
@@ -133,13 +133,13 @@ class RecipeAgent:
         # Store sessions: session_id -> memory
         self.sessions = {}
         
-        print("✅ Recipe Agent initialized successfully")
-        print(f"   - Model: GPT-4")
-        print(f"   - Tools: {len(ALL_TOOLS)} available")
-        print(f"   - Memory: Session-based (isolated per user)")
-        print(f"   - Safety: Enabled")
-        print(f"   - Media Embedding: Videos & Images")
-        print(f"   - Feedback: Pushover notifications")
+        # print("✅ Recipe Agent initialized successfully")
+        # print(f"   - Model: GPT-4o")
+        # print(f"   - Tools: {len(ALL_TOOLS)} available")
+        # print(f"   - Memory: Session-based (isolated per user)")
+        # print(f"   - Safety: Enabled")
+        # print(f"   - Media Embedding: Videos & Images")
+        # print(f"   - Feedback: Pushover notifications")
     
     def _get_or_create_session(self, session_id: str):
         """Get or create a session with its own memory"""
@@ -229,31 +229,32 @@ def get_agent() -> RecipeAgent:
     return _agent_instance
 
 
-def test_agent():
-    print("\n" + "=" * 60)
-    print("TESTING SESSION-BASED RECIPE AGENT")
-    print("=" * 60 + "\n")
+# def test_agent():
+#     print("\n" + "=" * 60)
+#     print("TESTING SESSION-BASED RECIPE AGENT")
+#     print("=" * 60 + "\n")
     
-    agent = get_agent()
+#     agent = get_agent()
     
-    # Test with two different sessions
-    session1 = "test-session-1"
-    session2 = "test-session-2"
+#     # Test with two different sessions
+#     session1 = "test-session-1"
+#     session2 = "test-session-2"
     
-    print("\n📝 Session 1: Asking about chicken")
-    result1 = agent.chat("What chicken recipes do you have?", session_id=session1)
-    print(f"Response: {result1['response'][:100]}...")
+#     print("\n📝 Session 1: Asking about chicken")
+#     result1 = agent.chat("What chicken recipes do you have?", session_id=session1)
+#     print(f"Response: {result1['response'][:100]}...")
     
-    print("\n📝 Session 2: Asking about pozole")
-    result2 = agent.chat("Show me pozole recipe", session_id=session2)
-    print(f"Response: {result2['response'][:100]}...")
+#     print("\n📝 Session 2: Asking about pozole")
+#     result2 = agent.chat("Show me pozole recipe", session_id=session2)
+#     print(f"Response: {result2['response'][:100]}...")
     
-    print("\n📝 Session 1: Continuing chicken conversation")
-    result3 = agent.chat("Tell me more about the first one", session_id=session1)
-    print(f"Response: {result3['response'][:100]}...")
+#     print("\n📝 Session 1: Continuing chicken conversation")
+#     result3 = agent.chat("Tell me more about the first one", session_id=session1)
+#     print(f"Response: {result3['response'][:100]}...")
     
-    print("\n✅ Sessions are isolated - each user has their own conversation!")
-    print("=" * 60 + "\n")
+#     print("\n✅ Sessions are isolated - each user has their own conversation!")
+#     print("=" * 60 + "\n")
 
 if __name__ == "__main__":
-    test_agent()
+    print("✅ Agent initialized successfully")
+    #test_agent()

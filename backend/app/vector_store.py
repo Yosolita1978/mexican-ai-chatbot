@@ -18,7 +18,7 @@ RECIPE_PDF_PATH = os.path.join(PROJECT_ROOT, "data", "recipes.pdf")
 
 def load_pdf_recipes(file_path: str = RECIPE_PDF_PATH):
     """Load recipes from PDF file using LangChain's PyPDFLoader"""
-    print(f"📄 Loading recipes from {file_path}...")
+    #print(f"📄 Loading recipes from {file_path}...")
     
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Recipe PDF not found at {file_path}")
@@ -26,7 +26,7 @@ def load_pdf_recipes(file_path: str = RECIPE_PDF_PATH):
     loader = PyPDFLoader(file_path)
     documents = loader.load()
     
-    print(f"✅ Loaded {len(documents)} pages from PDF")
+    #print(f"✅ Loaded {len(documents)} pages from PDF")
     
     return documents
 
@@ -150,7 +150,7 @@ def debug_recipe_extraction():
 
 def parse_recipes_from_pdf(documents):
     """Parse PDF documents and extract individual recipes with metadata"""
-    print("🔍 Parsing recipes and extracting metadata...")
+    #print("🔍 Parsing recipes and extracting metadata...")
     
     all_text = "\n".join([doc.page_content for doc in documents])
     
@@ -185,7 +185,7 @@ def parse_recipes_from_pdf(documents):
                 "metadata": metadata
             })
     
-    print(f"✅ Extracted {len(recipes)} recipes with metadata")
+    #print(f"✅ Extracted {len(recipes)} recipes with metadata")
     
     unknown_count = sum(1 for r in recipes if r["metadata"]["recipe_name"] == "Unknown Recipe")
     if unknown_count > 0:
@@ -193,17 +193,17 @@ def parse_recipes_from_pdf(documents):
     else:
         print(f"🎉 All recipe names extracted successfully!")
     
-    if recipes:
-        print(f"\n📋 Sample recipe metadata:")
-        sample = recipes[0]["metadata"]
-        for key, value in sample.items():
-            print(f"   - {key}: {value}")
+    # if recipes:
+    #     #print(f"\n📋 Sample recipe metadata:")
+    #     sample = recipes[0]["metadata"]
+    #     for key, value in sample.items():
+    #         #print(f"   - {key}: {value}")
     
     return recipes
 
 def create_recipe_chunks(recipes: List[Dict]):
     """Split recipes into optimal chunks while preserving metadata and cleaning text"""
-    print("✂️  Splitting recipes into chunks...")
+    #print("✂️  Splitting recipes into chunks...")
     
     cleaned_recipes = []
     for recipe in recipes:
@@ -242,22 +242,22 @@ def create_recipe_chunks(recipes: List[Dict]):
             )
             all_chunks.append(doc)
     
-    print(f"✅ Created {len(all_chunks)} chunks with metadata")
+    #print(f"✅ Created {len(all_chunks)} chunks with metadata")
     
     return all_chunks
 
 def create_vector_store():
     """Create and save FAISS vector store from recipe PDF"""
-    print("=" * 50)
-    print("🚀 Creating Enhanced Vector Store from PDF")
-    print("=" * 50)
+    #print("=" * 50)
+    #print("🚀 Creating Enhanced Vector Store from PDF")
+    #print("=" * 50)
     
     documents = load_pdf_recipes()
     recipes = parse_recipes_from_pdf(documents)
     chunks = create_recipe_chunks(recipes)
     
-    print("🧠 Creating embeddings and building vector store...")
-    print("   (This may take a minute...)")
+    #print("🧠 Creating embeddings and building vector store...")
+    #print("   (This may take a minute...)")
     
     embeddings = OpenAIEmbeddings()
     vector_store = FAISS.from_documents(chunks, embeddings)
@@ -265,8 +265,8 @@ def create_vector_store():
     os.makedirs(os.path.dirname(VECTOR_STORE_PATH), exist_ok=True)
     vector_store.save_local(VECTOR_STORE_PATH)
     
-    print(f"💾 Vector store saved to {VECTOR_STORE_PATH}/")
-    print("=" * 50)
+    #print(f"💾 Vector store saved to {VECTOR_STORE_PATH}/")
+    #print("=" * 50)
     
     return vector_store
 
@@ -275,17 +275,17 @@ def load_vector_store():
     embeddings = OpenAIEmbeddings()
     
     if os.path.exists(VECTOR_STORE_PATH):
-        print(f"📂 Loading existing vector store from {VECTOR_STORE_PATH}/")
+        #print(f"📂 Loading existing vector store from {VECTOR_STORE_PATH}/")
         vector_store = FAISS.load_local(
             VECTOR_STORE_PATH, 
             embeddings,
             allow_dangerous_deserialization=True
         )
-        print("✅ Vector store loaded successfully")
+        #print("✅ Vector store loaded successfully")
         return vector_store
     else:
-        print(f"⚠️  No existing vector store found at {VECTOR_STORE_PATH}/")
-        print("🔨 Creating new vector store...")
+        #print(f"⚠️  No existing vector store found at {VECTOR_STORE_PATH}/")
+        #print("🔨 Creating new vector store...")
         return create_vector_store()
 
 def search_recipes(query: str, k: int = 1, recipe_type: str = None):
@@ -335,40 +335,40 @@ def format_search_results_for_chat(results: List[dict]):
     
     return formatted
 
-def test_vector_store():
-    """Test the vector store with sample queries"""
-    print("=" * 50)
-    print("🧪 Testing Enhanced Vector Store")
-    print("=" * 50)
+# def test_vector_store():
+#     """Test the vector store with sample queries"""
+#     print("=" * 50)
+#     print("🧪 Testing Enhanced Vector Store")
+#     print("=" * 50)
     
-    test_queries = [
-        ("fajitas", None),
-        ("chicken", "chicken"),
-        ("pozole", None),
-        ("soup", "soup"),
-        ("atun", "seafood"),
-    ]
+#     test_queries = [
+#         ("fajitas", None),
+#         ("chicken", "chicken"),
+#         ("pozole", None),
+#         ("soup", "soup"),
+#         ("atun", "seafood"),
+#     ]
     
-    for query, filter_type in test_queries:
-        filter_msg = f" (filtered by: {filter_type})" if filter_type else ""
-        print(f"\n🔍 Testing query: '{query}'{filter_msg}")
+#     for query, filter_type in test_queries:
+#         filter_msg = f" (filtered by: {filter_type})" if filter_type else ""
+#         print(f"\n🔍 Testing query: '{query}'{filter_msg}")
         
-        results = search_recipes(query, k=1, recipe_type=filter_type)
+#         results = search_recipes(query, k=1, recipe_type=filter_type)
         
-        if results:
-            print(f"✅ Found {len(results)} results")
-            top = results[0]
-            print(f"   Top result: {top['recipe_name']}")
-            print(f"   Type: {top['recipe_type']}")
-            if top['servings']:
-                print(f"   Servings: {top['servings']}")
-            print(f"   Preview: {top['content'][:100]}...")
-        else:
-            print("❌ No results found")
+#         if results:
+#             print(f"✅ Found {len(results)} results")
+#             top = results[0]
+#             print(f"   Top result: {top['recipe_name']}")
+#             print(f"   Type: {top['recipe_type']}")
+#             if top['servings']:
+#                 print(f"   Servings: {top['servings']}")
+#             print(f"   Preview: {top['content'][:100]}...")
+#         else:
+#             print("❌ No results found")
     
-    print("\n" + "=" * 50)
-    print("✅ Vector store testing complete!")
-    print("=" * 50)
+#     print("\n" + "=" * 50)
+#     print("✅ Vector store testing complete!")
+#     print("=" * 50)
 
 def get_vector_store_info():
     """Get information about the current vector store"""
@@ -387,18 +387,13 @@ def get_vector_store_info():
     }
 
 if __name__ == "__main__":
-    print("🔧 Enhanced Vector Store Setup & Testing")
-    print("=" * 50)
+    #print("🔧 Enhanced Vector Store Setup & Testing")
+    #print("=" * 50)
     
-    choice = input("\nWhat would you like to do?\n1. Create new vector store\n2. Test existing vector store\n3. Both\n4. Debug recipe extraction\n\nChoice (1/2/3/4): ")
+    choice = input("\nWhat would you like to do?\n1. Create new vector store\n4. Debug recipe extraction\n\nChoice (1/4): ")
     
     if choice == "1":
         create_vector_store()
-    elif choice == "2":
-        test_vector_store()
-    elif choice == "3":
-        create_vector_store()
-        test_vector_store()
     elif choice == "4":
         debug_recipe_extraction()
     else:

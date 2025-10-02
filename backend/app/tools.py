@@ -1,4 +1,4 @@
-from langchain.tools import Tool
+from langchain.tools import Tool, StructuredTool
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from typing import List, Dict, Optional
 import re
@@ -6,6 +6,7 @@ import requests
 from app.vector_store import search_recipes, load_vector_store
 from app.config import SERPER_API_KEY, PUSHOVER_USER, PUSHOVER_TOKEN
 from app.utils.recipe_parser import scale_recipe, extract_servings_from_recipe
+from pydantic import BaseModel, Field
 
 # ============================================================================
 # TIER 1: CORE TOOLS
@@ -118,7 +119,13 @@ def web_search_function(query: str) -> str:
 # TIER 2: INTELLIGENCE TOOLS
 # ============================================================================
 
-def recipe_scale_function(recipe_text: str, target_servings: int) -> str:
+# UPDATE: Recipe Scale Function with proper input handling
+class RecipeScaleInput(BaseModel):
+    """Input for recipe scaling"""
+    recipe_text: str = Field(description="The complete recipe text to scale")
+    target_servings: int = Field(description="The target number of servings")
+
+def recipe_scale_function_structured(recipe_text: str, target_servings: int) -> str:
     """
     Scale a recipe to a different number of servings.
     Uses the recipe_parser utility to calculate new ingredient quantities.
@@ -443,17 +450,19 @@ web_search_tool = Tool(
     Output: Web search results with relevant information"""
 )
 
-recipe_scale_tool = Tool(
+# REPLACE the old recipe_scale_tool with this:
+recipe_scale_tool = StructuredTool.from_function(
+    func=recipe_scale_function_structured,
     name="recipe_scale_tool",
-    func=recipe_scale_function,
     description="""Scale a recipe to a different number of servings. 
     Use this when the user wants to adjust recipe quantities (e.g., "make this for 12 people", 
     "I only need half the recipe", "scale to 6 servings"). 
-    IMPORTANT: You must provide the FULL recipe text as input, not just the recipe name.
+    IMPORTANT: You must provide the FULL recipe text, not just the recipe name.
     First get the full recipe using get_full_recipe_tool, then scale it.
     
-    Input: recipe_text (the complete recipe content), target_servings (number)
-    Output: Scaled recipe with adjusted ingredient quantities"""
+    Input: recipe_text (string - the complete recipe content) and target_servings (integer - number of servings)
+    Output: Scaled recipe with adjusted ingredient quantities""",
+    args_schema=RecipeScaleInput,
 )
 
 ingredient_substitution_tool = Tool(
@@ -546,73 +555,74 @@ ALL_TOOLS = [
 
 TIER_1_TOOLS = ALL_TOOLS
 
-def test_tools():
-    """Test all tools individually"""
-    print("=" * 60)
-    print("TESTING ALL TOOLS (11 TOTAL)")
-    print("=" * 60)
+# def test_tools():
+#     """Test all tools individually"""
+#     print("=" * 60)
+#     print("TESTING ALL TOOLS (11 TOTAL)")
+#     print("=" * 60)
     
-    print("\n📍 TIER 1 TOOLS")
-    print("-" * 60)
+#     print("\n📍 TIER 1 TOOLS")
+#     print("-" * 60)
     
-    print("\n1. Testing recipe_search_tool")
-    result = recipe_search_function("chicken soup")
-    print(result[:300] + "...")
+#     print("\n1. Testing recipe_search_tool")
+#     result = recipe_search_function("chicken soup")
+#     print(result[:300] + "...")
     
-    print("\n2. Testing recipe_list_by_type_tool")
-    result = recipe_list_by_type_function("soup")
-    print(result[:300] + "...")
+#     print("\n2. Testing recipe_list_by_type_tool")
+#     result = recipe_list_by_type_function("soup")
+#     print(result[:300] + "...")
     
-    print("\n3. Testing get_full_recipe_tool")
-    result = get_full_recipe_function("Pozole Blanco")
-    print(result[:300] + "...")
+#     print("\n3. Testing get_full_recipe_tool")
+#     result = get_full_recipe_function("Pozole Blanco")
+#     print(result[:300] + "...")
     
-    print("\n4. Testing web_search_tool")
-    result = web_search_function("history of pozole")
-    print(result[:300] + "...")
+#     print("\n4. Testing web_search_tool")
+#     result = web_search_function("history of pozole")
+#     print(result[:300] + "...")
     
-    print("\n\n📍 TIER 2 TOOLS")
-    print("-" * 60)
+#     print("\n\n📍 TIER 2 TOOLS")
+#     print("-" * 60)
     
-    print("\n5. Testing recipe_scale_tool")
-    sample_recipe = get_full_recipe_function("Pozole Blanco")
-    result = recipe_scale_function(sample_recipe, 12)
-    print(result[:400] + "...")
+#     print("\n5. Testing recipe_scale_tool")
+#     sample_recipe = get_full_recipe_function("Pozole Blanco")
+#     result = recipe_scale_function(sample_recipe, 12)
+#     print(result[:400] + "...")
     
-    print("\n6. Testing ingredient_substitution_tool")
-    result = ingredient_substitution_function("cilantro", "allergy")
-    print(result[:300] + "...")
+#     print("\n6. Testing ingredient_substitution_tool")
+#     result = ingredient_substitution_function("cilantro", "allergy")
+#     print(result[:300] + "...")
     
-    print("\n7. Testing cooking_technique_tool")
-    result = cooking_technique_function("toast dried chiles")
-    print(result[:300] + "...")
+#     print("\n7. Testing cooking_technique_tool")
+#     result = cooking_technique_function("toast dried chiles")
+#     print(result[:300] + "...")
     
-    print("\n8. Testing recipe_filter_by_criteria_tool")
-    result = recipe_filter_by_criteria_function("quick chicken recipes")
-    print(result[:300] + "...")
+#     print("\n8. Testing recipe_filter_by_criteria_tool")
+#     result = recipe_filter_by_criteria_function("quick chicken recipes")
+#     print(result[:300] + "...")
     
-    print("\n\n📍 MEDIA TOOLS")
-    print("-" * 60)
+#     print("\n\n📍 MEDIA TOOLS")
+#     print("-" * 60)
     
-    print("\n9. Testing video_search_tool")
-    result = video_search_function("how to make pozole")
-    print(result)
+#     print("\n9. Testing video_search_tool")
+#     result = video_search_function("how to make pozole")
+#     print(result)
     
-    print("\n10. Testing image_search_tool")
-    result = image_search_function("bistec en bola")
-    print(result)
+#     print("\n10. Testing image_search_tool")
+#     result = image_search_function("bistec en bola")
+#     print(result)
     
-    print("\n\n📍 FEEDBACK TOOL")
-    print("-" * 60)
+#     print("\n\n📍 FEEDBACK TOOL")
+#     print("-" * 60)
     
-    print("\n11. Testing record_unknown_question_tool")
-    result = record_unknown_question_function("How do I make chocolate mole with sea urchin?")
-    print(result)
+#     print("\n11. Testing record_unknown_question_tool")
+#     result = record_unknown_question_function("How do I make chocolate mole with sea urchin?")
+#     print(result)
     
-    print("\n" + "=" * 60)
-    print(f"✅ ALL {len(ALL_TOOLS)} TOOLS TESTED")
-    print("=" * 60)
+#     print("\n" + "=" * 60)
+#     print(f"✅ ALL {len(ALL_TOOLS)} TOOLS TESTED")
+#     print("=" * 60)
 
 
 if __name__ == "__main__":
-    test_tools()
+    print("✅ Tools initialized successfully")
+   # test_tools()

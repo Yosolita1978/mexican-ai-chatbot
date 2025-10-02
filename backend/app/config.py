@@ -27,10 +27,10 @@ VECTOR_STORE_PATH = "data/vector_store"
 # Recipe data path
 RECIPE_DATA_PATH = "data/recipes"
 
-print("✅ Configuration loaded")
-print(f"   - OpenAI API Key: {'Set' if OPENAI_API_KEY else 'Missing'}")
-print(f"   - Serper API Key: {'Set' if SERPER_API_KEY else 'Missing'}")
-print(f"   - Pushover User: {'Set' if PUSHOVER_USER else 'Missing'}")
-print(f"   - Pushover Token: {'Set' if PUSHOVER_TOKEN else 'Missing'}")
-print(f"   - Sentry DSN: {'Set' if SENTRY_DSN else 'Missing'}")
-print(f"   - Environment: {ENVIRONMENT}")
+# print("✅ Configuration loaded")
+# print(f"   - OpenAI API Key: {'Set' if OPENAI_API_KEY else 'Missing'}")
+# print(f"   - Serper API Key: {'Set' if SERPER_API_KEY else 'Missing'}")
+# print(f"   - Pushover User: {'Set' if PUSHOVER_USER else 'Missing'}")
+# print(f"   - Pushover Token: {'Set' if PUSHOVER_TOKEN else 'Missing'}")
+# print(f"   - Sentry DSN: {'Set' if SENTRY_DSN else 'Missing'}")
+# print(f"   - Environment: {ENVIRONMENT}")
