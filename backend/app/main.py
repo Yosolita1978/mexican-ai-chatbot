@@ -34,7 +34,7 @@ app = FastAPI(
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://your-app.vercel.app",  # Update after deploying
+    "https://sazonbot.vercel.app",  # Update after deploying
 ]
 
 app.add_middleware(
