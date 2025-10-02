@@ -101,7 +101,6 @@ export default function Home() {
   const formatMessage = (content: string) => {
     const lines = content.split('\n');
     return lines.map((line, index) => {
-      // Check for video format: - VIDEO:XXXXX
       if (line.trim().startsWith('- VIDEO:')) {
         const videoId = line.trim().replace('- VIDEO:', '');
         return (
@@ -120,7 +119,6 @@ export default function Home() {
         );
       }
       
-      // Check for markdown image format: ![alt](url)
       const imageMatch = line.match(/!\[([^\]]*)\]\(([^)]+)\)/);
       if (imageMatch) {
         const altText = imageMatch[1];
@@ -165,7 +163,6 @@ export default function Home() {
       </Head>
 
       <div className="flex h-screen bg-ghost-white overflow-hidden">
-        {/* Mobile Overlay */}
         {sidebarOpen && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 z-40 xl:hidden"
@@ -173,7 +170,6 @@ export default function Home() {
           />
         )}
 
-        {/* Sidebar */}
         <aside className={`
           fixed xl:relative
           top-0 left-0 h-full
@@ -185,7 +181,6 @@ export default function Home() {
           z-50
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}
         `}>
-          {/* Close button (mobile/tablet only) */}
           <button
             onClick={() => setSidebarOpen(false)}
             className="xl:hidden absolute top-4 right-4 text-cornsilk hover:text-fulvous z-10"
@@ -195,7 +190,6 @@ export default function Home() {
             </svg>
           </button>
 
-          {/* Logo Header */}
           <div className="p-4 sm:p-6 border-b-2 border-fulvous">
             <div className="flex items-center gap-3 mb-4">
               <Image 
@@ -211,7 +205,6 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Language Toggle */}
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setLanguage('en')}
@@ -235,7 +228,6 @@ export default function Home() {
               </button>
             </div>
 
-            {/* Clear Conversation Button */}
             {messages.length > 0 && (
               <button
                 onClick={handleClearConversation}
@@ -246,7 +238,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Signature Recipe Buttons */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             <h2 className="text-xs sm:text-sm font-bold text-fulvous mb-4 uppercase tracking-wide">
               {t.signatureRecipes}
@@ -278,7 +269,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Footer */}
           <div className="p-4 sm:p-6 border-t-2 border-fulvous">
             <p className="text-xs text-cornsilk text-center">
               {t.footerText}
@@ -286,11 +276,8 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* Main Chat Area */}
         <main className="flex-1 flex flex-col min-w-0">
-          {/* Chat Header */}
           <header className="bg-white border-b-2 border-cornsilk p-3 sm:p-4 shadow-sm flex items-center gap-3">
-            {/* Hamburger Menu (mobile/tablet only) */}
             <button
               onClick={() => setSidebarOpen(true)}
               className="xl:hidden text-oxford-blue hover:text-turkey-red p-2"
@@ -310,8 +297,7 @@ export default function Home() {
             </div>
           </header>
 
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-ghost-white pb-4">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-ghost-white pb-20 xl:pb-4">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full px-4">
                 <div className="text-center max-w-md">
@@ -396,14 +382,7 @@ export default function Home() {
             )}
           </div>
 
-          {/* Input Area - Fixed at bottom on mobile with proper spacing */}
-          <footer 
-            className="bg-white border-t-2 border-cornsilk"
-            style={{ 
-              padding: '12px',
-              paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 24px)'
-            }}
-          >
+          <footer className="bg-white border-t-2 border-cornsilk p-3 xl:p-4" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
             <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
               <div className="flex gap-2 sm:gap-3">
                 <input

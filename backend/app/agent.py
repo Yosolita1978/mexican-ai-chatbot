@@ -70,16 +70,45 @@ YOUR TOOLS AND WHEN TO USE THEM:
    Use when: User has multiple requirements (e.g., "quick easy recipes", "soups without dairy", "beginner-friendly")
 
 9. **video_search_tool** - Find and show cooking video tutorials
-   Use when: User wants to SEE how to make something via video (e.g., "show me a video", "video tutorial", "watch how to make")
-   CRITICAL: This tool returns videos in a special format with "VIDEO:" markers
-   You MUST return the tool output EXACTLY as provided - DO NOT reformat, DO NOT convert to links or markdown
-   The frontend automatically embeds videos when it sees the VIDEO: format
+   Use when: User wants to SEE how to make something via video (e.g., "show me a video", "video tutorial", "watch how to make", "puedo ver un video")
+   
+   CRITICAL VIDEO FORMAT RULES - READ CAREFULLY:
+   - This tool returns results in EXACT format: "- VIDEO:XXXXX"
+   - You MUST copy the output EXACTLY character-by-character
+   - DO NOT add numbering (no "1.", "2.", "3.")
+   - DO NOT convert to markdown links like [Video 1](XXXXX)
+   - DO NOT reformat in ANY way
+   - DO NOT add descriptions or parentheses
+   
+   CORRECT example of what you should output:
+   ¡Perfecto! Aquí tienes algunos videos:
+   - VIDEO:2dNMtB7dT24
+   - VIDEO:CV4qEOOkneY
+   - VIDEO:Ppxm-stdIpA
+   
+   WRONG examples (DO NOT DO THIS):
+   1. [Video 1](2dNMtB7dT24)  ❌ WRONG
+   2. - VIDEO:2dNMtB7dT24 (Carne con Nopales)  ❌ WRONG
+   3. Video 1: 2dNMtB7dT24  ❌ WRONG
 
 10. **image_search_tool** - Find and show food images
-    Use when: User wants to SEE what something looks like (e.g., "show me a picture", "what does X look like", "image of", "imagen de")
-    CRITICAL: This tool returns images in a special format with "IMAGE:" markers
-    You MUST return the tool output EXACTLY as provided - DO NOT reformat, DO NOT convert to markdown
-    The frontend automatically displays images when it sees the IMAGE: format
+    Use when: User wants to SEE what something looks like (e.g., "show me a picture", "what does X look like", "image of", "imagen de", "muéstrame una foto")
+    
+    CRITICAL IMAGE FORMAT RULES - READ CAREFULLY:
+    - This tool returns results in markdown format: "![alt](url)"
+    - You MUST copy the output EXACTLY as provided
+    - DO NOT add numbering (no "1.", "2.", "3.")
+    - DO NOT modify the markdown format
+    - DO NOT add extra descriptions
+    
+    CORRECT example:
+    Aquí tienes algunas imágenes de nopales:
+    ![Nopal Image 1](https://example.com/image1.jpg)
+    ![Nopal Image 2](https://example.com/image2.jpg)
+    
+    WRONG examples (DO NOT DO THIS):
+    1. ![Nopal Image 1](...)  ❌ WRONG (no numbering)
+    [Image of nopales](...)  ❌ WRONG (missing the !)
 
 11. **record_unknown_question_tool** - Record unanswered questions
     Use ONLY when: You genuinely cannot answer a legitimate food/cooking question after trying all other tools
@@ -93,7 +122,7 @@ IMPORTANT GUIDELINES:
 - After listing recipes, if user picks one, use get_full_recipe_tool
 - For questions about recipe history or cultural context, use web_search_tool
 - When scaling recipes, ALWAYS get the full recipe first, then scale it
-- **CRITICAL FOR VIDEOS & IMAGES**: When these tools return results, copy them EXACTLY - DO NOT reformat VIDEO: or IMAGE: markers into markdown. The frontend needs these exact formats to embed media in the chat.
+- **CRITICAL FOR VIDEOS & IMAGES**: Copy tool outputs EXACTLY - preserve the "- VIDEO:" and "![]()" formats without any modifications
 - If you genuinely can't answer a legitimate food question after trying all tools, use record_unknown_question_tool, then apologize and offer alternative help
 - If someone asks something unrelated to Mexican food or cooking, make a gentle joke and redirect (do NOT record these)
 - Remember context from previous messages in the conversation
@@ -118,7 +147,7 @@ Remember: You're a fun, loving mother-in-law sharing family treasures. Be warm, 
 class RecipeAgent:
     def __init__(self):
         self.llm = ChatOpenAI(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             temperature=0.7,
             openai_api_key=OPENAI_API_KEY
         )
@@ -130,19 +159,9 @@ class RecipeAgent:
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
         
-        # Store sessions: session_id -> memory
         self.sessions = {}
-        
-        # print("✅ Recipe Agent initialized successfully")
-        # print(f"   - Model: GPT-4o")
-        # print(f"   - Tools: {len(ALL_TOOLS)} available")
-        # print(f"   - Memory: Session-based (isolated per user)")
-        # print(f"   - Safety: Enabled")
-        # print(f"   - Media Embedding: Videos & Images")
-        # print(f"   - Feedback: Pushover notifications")
     
     def _get_or_create_session(self, session_id: str):
-        """Get or create a session with its own memory"""
         if session_id not in self.sessions:
             memory = ConversationBufferWindowMemory(
                 memory_key="chat_history",
@@ -169,15 +188,11 @@ class RecipeAgent:
                 'memory': memory,
                 'executor': agent_executor
             }
-            
-            print(f"📝 Created new session: {session_id}")
         
         return self.sessions[session_id]
     
     def chat(self, user_message: str, session_id: str = None) -> Dict:
-        """Chat with session isolation"""
         try:
-            # Generate session ID if not provided
             if not session_id:
                 session_id = str(uuid.uuid4())
             
@@ -192,7 +207,7 @@ class RecipeAgent:
             }
         
         except Exception as e:
-            print(f"❌ Error in agent chat: {str(e)}")
+            # print(f"❌ Error in agent chat: {str(e)}")
             return {
                 "response": "¡Ay no! I ran into a little problem. Can you try asking that again?",
                 "tools_used": [],
@@ -201,60 +216,28 @@ class RecipeAgent:
             }
     
     def clear_memory(self, session_id: str):
-        """Clear memory for a specific session"""
         if session_id in self.sessions:
             self.sessions[session_id]['memory'].clear()
-            print(f"🧹 Conversation memory cleared for session: {session_id}")
+            # print(f"🧹 Conversation memory cleared for session: {session_id}")
             return True
         return False
     
     def cleanup_old_sessions(self, max_sessions: int = 100):
-        """Clean up old sessions to prevent memory bloat"""
         if len(self.sessions) > max_sessions:
-            # Remove oldest sessions (simple FIFO)
             sessions_to_remove = list(self.sessions.keys())[:-max_sessions]
             for session_id in sessions_to_remove:
                 del self.sessions[session_id]
-            print(f"🧹 Cleaned up {len(sessions_to_remove)} old sessions")
+            # print(f"🧹 Cleaned up {len(sessions_to_remove)} old sessions")
 
 
-# Singleton pattern for the agent manager
 _agent_instance = None
 
 def get_agent() -> RecipeAgent:
-    """Get the global agent instance"""
     global _agent_instance
     if _agent_instance is None:
         _agent_instance = RecipeAgent()
     return _agent_instance
 
 
-# def test_agent():
-#     print("\n" + "=" * 60)
-#     print("TESTING SESSION-BASED RECIPE AGENT")
-#     print("=" * 60 + "\n")
-    
-#     agent = get_agent()
-    
-#     # Test with two different sessions
-#     session1 = "test-session-1"
-#     session2 = "test-session-2"
-    
-#     print("\n📝 Session 1: Asking about chicken")
-#     result1 = agent.chat("What chicken recipes do you have?", session_id=session1)
-#     print(f"Response: {result1['response'][:100]}...")
-    
-#     print("\n📝 Session 2: Asking about pozole")
-#     result2 = agent.chat("Show me pozole recipe", session_id=session2)
-#     print(f"Response: {result2['response'][:100]}...")
-    
-#     print("\n📝 Session 1: Continuing chicken conversation")
-#     result3 = agent.chat("Tell me more about the first one", session_id=session1)
-#     print(f"Response: {result3['response'][:100]}...")
-    
-#     print("\n✅ Sessions are isolated - each user has their own conversation!")
-#     print("=" * 60 + "\n")
-
 if __name__ == "__main__":
-    print("✅ Agent initialized successfully")
-    #test_agent()
+    pass
