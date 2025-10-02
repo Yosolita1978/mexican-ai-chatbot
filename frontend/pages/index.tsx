@@ -16,15 +16,15 @@ export default function Home() {
 
   const loadingMessages = {
     en: [
-      "🔍 Searching García family recipes...",
-      "📖 Consulting the recipe collection...",
-      "👨‍🍳 Preparing your answer...",
+      "🔍 Searching recipes...",
+      "📖 Consulting collection...",
+      "👨‍🍳 Preparing answer...",
       "✨ Almost ready..."
     ],
     es: [
-      "🔍 Buscando en las recetas García...",
-      "📖 Consultando la colección familiar...",
-      "👨‍🍳 Preparando tu respuesta...",
+      "🔍 Buscando recetas...",
+      "📖 Consultando colección...",
+      "👨‍🍳 Preparando respuesta...",
       "✨ Casi listo..."
     ]
   };
@@ -104,7 +104,7 @@ export default function Home() {
       if (line.trim().startsWith('- VIDEO:')) {
         const videoId = line.trim().replace('- VIDEO:', '');
         return (
-          <div key={index} className="my-3 sm:my-4">
+          <div key={index} className="my-3">
             <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
               <iframe
                 className="absolute top-0 left-0 w-full h-full rounded-lg"
@@ -124,7 +124,7 @@ export default function Home() {
         const altText = imageMatch[1];
         const imageUrl = imageMatch[2];
         return (
-          <div key={index} className="my-3 sm:my-4">
+          <div key={index} className="my-3">
             <img
               src={imageUrl}
               alt={altText}
@@ -137,19 +137,19 @@ export default function Home() {
       
       if (line.startsWith('**') && line.endsWith('**')) {
         const text = line.replace(/\*\*/g, '');
-        return <h3 key={index} className="text-base sm:text-lg font-bold text-turkey-red mt-3 sm:mt-4 mb-2">{text}</h3>;
+        return <h3 key={index} className="text-base font-bold text-turkey-red mt-3 mb-2">{text}</h3>;
       }
       if (line.startsWith('*') && line.endsWith('*')) {
         const text = line.replace(/\*/g, '');
-        return <p key={index} className="text-xs sm:text-sm text-oxford-blue opacity-75 mb-2">{text}</p>;
+        return <p key={index} className="text-xs text-oxford-blue opacity-75 mb-2">{text}</p>;
       }
       if (line === '---') {
-        return <hr key={index} className="my-3 sm:my-4 border-fulvous" />;
+        return <hr key={index} className="my-3 border-fulvous" />;
       }
       if (line.trim() === '') {
         return <br key={index} />;
       }
-      return <p key={index} className="mb-2 text-sm sm:text-base">{line}</p>;
+      return <p key={index} className="mb-2 text-sm">{line}</p>;
     });
   };
 
@@ -162,7 +162,7 @@ export default function Home() {
         <link rel="icon" href="/logo.png" />
       </Head>
 
-      <div className="flex h-screen bg-ghost-white overflow-hidden">
+      <div className="flex h-[100dvh] bg-ghost-white overflow-hidden">
         {sidebarOpen && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 z-40 xl:hidden"
@@ -276,62 +276,62 @@ export default function Home() {
           </div>
         </aside>
 
-        <main className="flex-1 flex flex-col min-w-0">
-          <header className="bg-white border-b-2 border-cornsilk p-3 sm:p-4 shadow-sm flex items-center gap-3">
+        <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+          <header className="bg-white border-b-2 border-cornsilk px-2 py-1.5 sm:p-4 shadow-sm flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="xl:hidden text-oxford-blue hover:text-turkey-red p-2"
+              className="xl:hidden text-oxford-blue hover:text-turkey-red p-1"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
 
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg sm:text-xl font-bold text-oxford-blue truncate">
+              <h2 className="text-sm sm:text-xl font-bold text-oxford-blue truncate">
                 {t.chatTitle}
               </h2>
-              <p className="text-xs sm:text-sm text-turkey-red truncate">
+              <p className="text-xs text-turkey-red truncate hidden sm:block">
                 {t.chatSubtitle}
               </p>
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-ghost-white pb-20 xl:pb-4">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-4 bg-ghost-white">
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full px-4">
+              <div className="flex items-center justify-center h-full px-2">
                 <div className="text-center max-w-md">
                   <Image 
                     src="/logo.png" 
                     alt={t.title}
-                    width={100} 
-                    height={100}
-                    className="mx-auto mb-4 sm:mb-6 rounded-xl sm:w-[120px] sm:h-[120px]"
+                    width={60} 
+                    height={60}
+                    className="mx-auto mb-3 rounded-xl sm:w-[100px] sm:h-[100px]"
                   />
-                  <h3 className="text-xl sm:text-2xl font-bold text-oxford-blue mb-2 sm:mb-3">
+                  <h3 className="text-base sm:text-2xl font-bold text-oxford-blue mb-1 sm:mb-3">
                     {t.welcome}
                   </h3>
-                  <p className="text-sm sm:text-base text-oxford-blue mb-4 sm:mb-6">
+                  <p className="text-xs sm:text-base text-oxford-blue">
                     {t.welcomeText}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 sm:space-y-4 max-w-4xl mx-auto">
+              <div className="space-y-2 sm:space-y-4 max-w-4xl mx-auto">
                 {messages.map((message, index) => (
                   <div
                     key={index}
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
                   >
                     <div
-                      className={`max-w-[85%] sm:max-w-2xl rounded-2xl px-4 py-3 sm:px-6 sm:py-4 ${
+                      className={`max-w-[85%] sm:max-w-2xl rounded-2xl px-3 py-2 sm:px-6 sm:py-4 ${
                         message.role === 'user'
                           ? 'bg-fulvous text-white'
                           : 'bg-cornsilk text-oxford-blue border-2 border-fulvous'
                       }`}
                     >
                       {message.role === 'user' ? (
-                        <p className="text-sm sm:text-base">{message.content}</p>
+                        <p className="text-sm">{message.content}</p>
                       ) : (
                         <div className="prose prose-sm max-w-none">
                           {formatMessage(message.content)}
@@ -342,26 +342,26 @@ export default function Home() {
                 ))}
                 {loading && (
                   <div className="flex justify-start animate-fadeIn">
-                    <div className="bg-cornsilk rounded-2xl px-4 py-4 sm:px-6 sm:py-5 border-2 border-fulvous">
-                      <div className="flex items-center space-x-3">
+                    <div className="bg-cornsilk rounded-2xl px-3 py-3 sm:px-6 sm:py-5 border-2 border-fulvous">
+                      <div className="flex items-center space-x-2">
                         <div className="relative">
                           <Image 
                             src="/logo.png" 
                             alt="Loading"
-                            width={32}
-                            height={32}
+                            width={24}
+                            height={24}
                             className="rounded-lg animate-pulse"
                           />
                           <div className="absolute inset-0 bg-fulvous rounded-lg animate-ping opacity-20"></div>
                         </div>
                         <div className="flex flex-col">
-                          <p className="text-sm font-medium text-oxford-blue animate-fadeIn">
+                          <p className="text-xs sm:text-sm font-medium text-oxford-blue">
                             {loadingMessages[language][loadingMessage]}
                           </p>
-                          <div className="flex items-center space-x-1 mt-2">
-                            <div className="w-2 h-2 bg-fulvous rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-fulvous rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-2 h-2 bg-fulvous rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          <div className="flex items-center space-x-1 mt-1">
+                            <div className="w-1.5 h-1.5 bg-fulvous rounded-full animate-bounce"></div>
+                            <div className="w-1.5 h-1.5 bg-fulvous rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-1.5 h-1.5 bg-fulvous rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                           </div>
                         </div>
                       </div>
@@ -373,32 +373,32 @@ export default function Home() {
             )}
             
             {error && (
-              <div className="max-w-4xl mx-auto mt-4 animate-fadeIn">
-                <div className="bg-turkey-red text-white rounded-lg p-3 sm:p-4">
-                  <p className="font-semibold text-sm sm:text-base">{t.errorTitle}</p>
-                  <p className="text-xs sm:text-sm mt-1">{error}</p>
+              <div className="max-w-4xl mx-auto mt-2 animate-fadeIn">
+                <div className="bg-turkey-red text-white rounded-lg p-2 sm:p-4">
+                  <p className="font-semibold text-xs sm:text-base">{t.errorTitle}</p>
+                  <p className="text-xs mt-1">{error}</p>
                 </div>
               </div>
             )}
           </div>
 
-          <footer className="bg-white border-t-2 border-cornsilk p-3 xl:p-4" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
+          <footer className="bg-white border-t-2 border-cornsilk px-2 py-1.5 sm:p-4 flex-shrink-0" style={{ paddingBottom: 'max(6px, env(safe-area-inset-bottom))' }}>
             <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-              <div className="flex gap-2 sm:gap-3">
+              <div className="flex gap-1 sm:gap-3">
                 <input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t.placeholder}
-                  className="flex-1 px-4 py-3 sm:px-6 sm:py-3 border-2 border-fulvous rounded-full focus:outline-none focus:border-turkey-red text-oxford-blue text-sm sm:text-base transition-all"
+                  className="flex-1 px-3 py-2 sm:px-6 sm:py-3 border-2 border-fulvous rounded-full focus:outline-none focus:border-turkey-red text-oxford-blue text-sm transition-all"
                   disabled={loading}
                 />
                 <button
                   type="submit"
                   disabled={loading || !query.trim()}
-                  className="bg-turkey-red hover:bg-fulvous text-white px-6 py-3 sm:px-8 sm:py-3 rounded-full font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm sm:text-base active:scale-95 min-w-[80px] sm:min-w-[100px]"
+                  className="bg-turkey-red hover:bg-fulvous text-white px-4 py-2 sm:px-8 sm:py-3 rounded-full font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all text-xs sm:text-base active:scale-95"
                 >
-                  {loading ? t.searching : t.askButton}
+                  {loading ? '...' : t.askButton}
                 </button>
               </div>
             </form>

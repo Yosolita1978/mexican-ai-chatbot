@@ -8,15 +8,7 @@ from app.config import SERPER_API_KEY, PUSHOVER_USER, PUSHOVER_TOKEN
 from app.utils.recipe_parser import scale_recipe, extract_servings_from_recipe
 from pydantic import BaseModel, Field
 
-# ============================================================================
-# TIER 1: CORE TOOLS
-# ============================================================================
-
 def recipe_search_function(query: str) -> str:
-    """
-    Search the recipe database for relevant recipes.
-    This is the wrapper function that LangChain will call.
-    """
     try:
         results = search_recipes(query, k=3)
         
@@ -41,10 +33,6 @@ def recipe_search_function(query: str) -> str:
 
 
 def recipe_list_by_type_function(recipe_type: str) -> str:
-    """
-    List all available recipes of a specific type.
-    Returns just the names, not full content.
-    """
     try:
         vector_store = load_vector_store()
         results = search_recipes(recipe_type, k=20, recipe_type=recipe_type)
@@ -69,9 +57,6 @@ def recipe_list_by_type_function(recipe_type: str) -> str:
 
 
 def get_full_recipe_function(recipe_name: str) -> str:
-    """
-    Get the complete recipe by exact or close name match.
-    """
     try:
         results = search_recipes(recipe_name, k=1)
         
@@ -97,9 +82,6 @@ def get_full_recipe_function(recipe_name: str) -> str:
 
 
 def web_search_function(query: str) -> str:
-    """
-    Search the web for current information about Mexican food, recipes, ingredients, etc.
-    """
     try:
         if not SERPER_API_KEY:
             return "Web search is not available. Serper API key is not configured."
@@ -115,21 +97,11 @@ def web_search_function(query: str) -> str:
         return f"Error searching the web: {str(e)}"
 
 
-# ============================================================================
-# TIER 2: INTELLIGENCE TOOLS
-# ============================================================================
-
-# UPDATE: Recipe Scale Function with proper input handling
 class RecipeScaleInput(BaseModel):
-    """Input for recipe scaling"""
     recipe_text: str = Field(description="The complete recipe text to scale")
     target_servings: int = Field(description="The target number of servings")
 
 def recipe_scale_function_structured(recipe_text: str, target_servings: int) -> str:
-    """
-    Scale a recipe to a different number of servings.
-    Uses the recipe_parser utility to calculate new ingredient quantities.
-    """
     try:
         if not recipe_text or not recipe_text.strip():
             return "Error: No recipe provided to scale. Please provide the full recipe text first."
@@ -145,10 +117,6 @@ def recipe_scale_function_structured(recipe_text: str, target_servings: int) -> 
 
 
 def ingredient_substitution_function(ingredient: str, reason: str = "") -> str:
-    """
-    Suggest substitutes for ingredients.
-    Uses web search to find authentic Mexican cooking substitutions.
-    """
     try:
         if not SERPER_API_KEY:
             return "Substitution lookup is not available without web search. However, common substitutions: cilantro → parsley, epazote → oregano, tomatillos → green tomatoes."
@@ -170,10 +138,6 @@ def ingredient_substitution_function(ingredient: str, reason: str = "") -> str:
 
 
 def cooking_technique_function(technique: str) -> str:
-    """
-    Explain Mexican cooking techniques.
-    Searches for detailed explanations of cooking methods.
-    """
     try:
         if not SERPER_API_KEY:
             return f"Technique lookup requires web search. I can explain basic techniques from memory - what would you like to know about {technique}?"
@@ -193,10 +157,6 @@ def cooking_technique_function(technique: str) -> str:
 
 
 def recipe_filter_by_criteria_function(criteria: str) -> str:
-    """
-    Filter recipes by complex criteria like time, difficulty, ingredients to avoid, etc.
-    Uses natural language to understand what the user wants.
-    """
     try:
         criteria_lower = criteria.lower()
         
@@ -236,10 +196,6 @@ def recipe_filter_by_criteria_function(criteria: str) -> str:
 
 
 def video_search_function(query: str) -> str:
-    """
-    Search for cooking videos using Serper API directly.
-    Returns YouTube video IDs in VIDEO: format for frontend embedding.
-    """
     try:
         if not SERPER_API_KEY:
             return "Video search is not available. Serper API key is not configured."
@@ -272,7 +228,7 @@ def video_search_function(query: str) -> str:
         if not videos:
             return f"No cooking videos found for: {query}. Would you like the written recipe instead?"
         
-        result_text = f"Here are some great video tutorials for {query}:\n\n"
+        result_lines = []
         
         video_count = 0
         for video in videos[:3]:
@@ -285,28 +241,22 @@ def video_search_function(query: str) -> str:
                 youtube_id = link.split('youtu.be/')[1].split('?')[0]
             
             if youtube_id and len(youtube_id) == 11:
-                result_text += f"VIDEO:{youtube_id}\n"
+                result_lines.append(f"- VIDEO:{youtube_id}")
                 video_count += 1
         
         if video_count == 0:
             return f"Found some videos but couldn't embed them. Would you like the written recipe instead?"
         
-        result_text += "\nYou can watch these videos right here in the chat. ¡Disfruta!"
-        
-        return result_text
+        return "\n".join(result_lines)
         
     except requests.Timeout:
         return "Video search timed out. Let me give you the written recipe instead!"
     except Exception as e:
-        print(f"Video search error: {str(e)}")
+        # print(f"Video search error: {str(e)}")
         return "Having trouble finding videos right now. Would you like me to walk you through the recipe steps instead?"
 
 
 def image_search_function(query: str) -> str:
-    """
-    Search for food images using Serper API directly.
-    Returns image URLs in IMAGE: format for frontend display.
-    """
     try:
         if not SERPER_API_KEY:
             return "Image search is not available. Serper API key is not configured."
@@ -339,42 +289,38 @@ def image_search_function(query: str) -> str:
         if not images:
             return f"No images found for: {query}. Try different search terms."
         
-        result_text = f"Here are some images of {query}:\n\n"
+        result_lines = []
         
         image_count = 0
         for img in images[:3]:
             image_url = img.get('imageUrl', '')
             if image_url:
-                result_text += f"IMAGE:{image_url}\n"
+                result_lines.append(f"![Image {image_count + 1}]({image_url})")
                 image_count += 1
         
         if image_count == 0:
             return f"Found some images but couldn't display them. Try searching online for '{query}'."
         
-        return result_text
+        return "\n".join(result_lines)
         
     except requests.Timeout:
         return "Image search timed out. Try describing what you're looking for instead."
     except Exception as e:
-        print(f"Image search error: {str(e)}")
+        # print(f"Image search error: {str(e)}")
         return "Having trouble finding images right now. Can I help you in another way?"
 
 
 def record_unknown_question_function(question: str) -> str:
-    """
-    Record a question that couldn't be answered and send notification via Pushover.
-    This helps track gaps in the recipe knowledge base.
-    """
     try:
         if not PUSHOVER_USER or not PUSHOVER_TOKEN:
-            print(f"⚠️ Unanswered question (Pushover not configured): {question}")
+            # print(f"⚠️ Unanswered question (Pushover not configured): {question}")
             return "Question recorded locally (notification system not configured)."
         
         payload = {
             "token": PUSHOVER_TOKEN,
             "user": PUSHOVER_USER,
             "message": f"Unanswered question from SazónBot:\n\n{question}",
-            "title": "🍲 SazónBot - Unanswered Question",
+            "title": "SazónBot - Unanswered Question",
             "priority": 0,
         }
         
@@ -385,20 +331,16 @@ def record_unknown_question_function(question: str) -> str:
         )
         
         if response.status_code == 200:
-            print(f"✅ Pushover notification sent for question: {question}")
+            # print(f"✅ Pushover notification sent for question: {question}")
             return "Question recorded and notification sent successfully."
         else:
-            print(f"⚠️ Pushover failed ({response.status_code}): {question}")
+            # print(f"⚠️ Pushover failed ({response.status_code}): {question}")
             return "Question recorded but notification failed."
         
     except Exception as e:
-        print(f"❌ Error recording question: {str(e)}")
+        # print(f"❌ Error recording question: {str(e)}")
         return f"Error recording question: {str(e)}"
 
-
-# ============================================================================
-# TOOL DEFINITIONS
-# ============================================================================
 
 recipe_search_tool = Tool(
     name="recipe_search_tool",
@@ -450,7 +392,6 @@ web_search_tool = Tool(
     Output: Web search results with relevant information"""
 )
 
-# REPLACE the old recipe_scale_tool with this:
 recipe_scale_tool = StructuredTool.from_function(
     func=recipe_scale_function_structured,
     name="recipe_scale_tool",
@@ -509,7 +450,7 @@ video_search_tool = Tool(
     CRITICAL: Return the tool output EXACTLY as provided - DO NOT reformat VIDEO: markers.
     
     Input: Recipe or technique name
-    Output: Embedded YouTube videos"""
+    Output: Embedded YouTube videos in format: - VIDEO:XXXXX"""
 )
 
 image_search_tool = Tool(
@@ -520,10 +461,10 @@ image_search_tool = Tool(
     or use words like "show me an image", "what does it look like", "picture of", "imagen de" 
     (e.g., "show me a picture of bistec en bola", "what does epazote look like", "image of pozole").
     Returns images that will display directly in the chat.
-    CRITICAL: Return the tool output EXACTLY as provided - DO NOT reformat IMAGE: markers.
+    CRITICAL: Return the tool output EXACTLY as provided - DO NOT reformat image markdown.
     
     Input: Food item, ingredient, or dish name
-    Output: Images displayed inline in the chat"""
+    Output: Images in markdown format: ![Image](url)"""
 )
 
 record_unknown_question_tool = Tool(
@@ -555,74 +496,5 @@ ALL_TOOLS = [
 
 TIER_1_TOOLS = ALL_TOOLS
 
-# def test_tools():
-#     """Test all tools individually"""
-#     print("=" * 60)
-#     print("TESTING ALL TOOLS (11 TOTAL)")
-#     print("=" * 60)
-    
-#     print("\n📍 TIER 1 TOOLS")
-#     print("-" * 60)
-    
-#     print("\n1. Testing recipe_search_tool")
-#     result = recipe_search_function("chicken soup")
-#     print(result[:300] + "...")
-    
-#     print("\n2. Testing recipe_list_by_type_tool")
-#     result = recipe_list_by_type_function("soup")
-#     print(result[:300] + "...")
-    
-#     print("\n3. Testing get_full_recipe_tool")
-#     result = get_full_recipe_function("Pozole Blanco")
-#     print(result[:300] + "...")
-    
-#     print("\n4. Testing web_search_tool")
-#     result = web_search_function("history of pozole")
-#     print(result[:300] + "...")
-    
-#     print("\n\n📍 TIER 2 TOOLS")
-#     print("-" * 60)
-    
-#     print("\n5. Testing recipe_scale_tool")
-#     sample_recipe = get_full_recipe_function("Pozole Blanco")
-#     result = recipe_scale_function(sample_recipe, 12)
-#     print(result[:400] + "...")
-    
-#     print("\n6. Testing ingredient_substitution_tool")
-#     result = ingredient_substitution_function("cilantro", "allergy")
-#     print(result[:300] + "...")
-    
-#     print("\n7. Testing cooking_technique_tool")
-#     result = cooking_technique_function("toast dried chiles")
-#     print(result[:300] + "...")
-    
-#     print("\n8. Testing recipe_filter_by_criteria_tool")
-#     result = recipe_filter_by_criteria_function("quick chicken recipes")
-#     print(result[:300] + "...")
-    
-#     print("\n\n📍 MEDIA TOOLS")
-#     print("-" * 60)
-    
-#     print("\n9. Testing video_search_tool")
-#     result = video_search_function("how to make pozole")
-#     print(result)
-    
-#     print("\n10. Testing image_search_tool")
-#     result = image_search_function("bistec en bola")
-#     print(result)
-    
-#     print("\n\n📍 FEEDBACK TOOL")
-#     print("-" * 60)
-    
-#     print("\n11. Testing record_unknown_question_tool")
-#     result = record_unknown_question_function("How do I make chocolate mole with sea urchin?")
-#     print(result)
-    
-#     print("\n" + "=" * 60)
-#     print(f"✅ ALL {len(ALL_TOOLS)} TOOLS TESTED")
-#     print("=" * 60)
-
-
 if __name__ == "__main__":
-    print("✅ Tools initialized successfully")
-   # test_tools()
+    pass

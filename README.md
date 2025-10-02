@@ -18,8 +18,8 @@ An intelligent conversational chatbot that shares authentic Mexican recipes from
 
 ## 🚀 Live Demo
 
-**Frontend**: [https://your-app.vercel.app](https://your-app.vercel.app)  
-**API**: [https://your-api.onrender.com/docs](https://your-api.onrender.com/docs)
+**Frontend**: [https://sazonbot.vercel.app](https://sazonbot.vercel.app)  
+**API**: [https://mexican-ai-chatbot.onrender.com/docs](https://mexican-ai-chatbot.onrender.com/docs)
 
 > ⚠️ Note: First request may take 20-30 seconds on Render's free tier due to cold starts.
 
