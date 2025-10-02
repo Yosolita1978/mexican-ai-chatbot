@@ -1,275 +1,149 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
-import uvicorn
-from app.config import APP_NAME, APP_VERSION, OPENAI_API_KEY
-from app.models import HealthResponse, RecipeSearchRequest, RecipeSearchResponse, ChatRequest
-from app.vector_store import search_recipes, format_search_results_for_chat, get_vector_store_info
+from pydantic import BaseModel
 from app.agent import get_agent
+from app.config import APP_NAME, APP_VERSION, OPENAI_API_KEY, SENTRY_DSN, ENVIRONMENT
+import os
+from typing import Optional
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    print("=" * 50)
-    print(f"🚀 Starting {APP_NAME} v{APP_VERSION}")
-    print("=" * 50)
-    print(f"✅ OpenAI API Key: {'Configured' if OPENAI_API_KEY else 'Missing'}")
-    
-    vector_info = get_vector_store_info()
-    if vector_info["exists"]:
-        print(f"✅ Vector Store: {vector_info['message']}")
-    else:
-        print(f"⚠️  Vector Store: {vector_info['message']}")
-    
-    print(f"📚 Server running at: http://localhost:8000")
-    print(f"📖 API Documentation: http://localhost:8000/docs")
-    print(f"🔍 Alternative Docs: http://localhost:8000/redoc")
-    print("=" * 50)
-    
-    yield
-    
-    print("=" * 50)
-    print(f"👋 Shutting down {APP_NAME}")
-    print("=" * 50)
+# Initialize Sentry
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=ENVIRONMENT,
+        traces_sample_rate=1.0 if ENVIRONMENT == "development" else 0.1,
+        profiles_sample_rate=1.0 if ENVIRONMENT == "development" else 0.1,
+        integrations=[
+            StarletteIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="endpoint"),
+        ],
+        release=f"{APP_NAME}@{APP_VERSION}",
+        # Set custom tags
+        before_send=lambda event, hint: event,
+    )
+    print(f"✅ Sentry initialized for {ENVIRONMENT} environment")
+else:
+    print("⚠️ Sentry not configured - skipping error tracking")
 
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
-    description="AI-powered Mexican recipe chatbot with grandmother's authentic recipes",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
+    description="SazónBot - Mexican Recipe Assistant with Session Support"
 )
+
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://your-app.vercel.app",  # Update after deploying
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/", response_model=HealthResponse)
-async def root():
-    return HealthResponse(
-        status="healthy",
-        message=f"Welcome to {APP_NAME}! Visit /docs for API documentation.",
-        version=APP_VERSION
-    )
+class ChatRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
 
-@app.get("/health", response_model=HealthResponse)
-async def health_check():
-    return HealthResponse(
-        status="healthy",
-        message="Server is running and ready to serve recipes!",
-        version=APP_VERSION
-    )
+class ChatResponse(BaseModel):
+    response: str
+    tools_used: list = []
+    session_id: str
 
-@app.get("/test/config")
-async def test_config():
-    vector_info = get_vector_store_info()
-    
+class ClearMemoryRequest(BaseModel):
+    session_id: str
+
+@app.get("/")
+def read_root():
     return {
-        "app_name": APP_NAME,
+        "app": APP_NAME,
         "version": APP_VERSION,
+        "status": "running",
         "openai_configured": bool(OPENAI_API_KEY),
-        "vector_store_ready": vector_info["exists"],
-        "vector_store_path": vector_info.get("path", "Not created yet"),
-        "endpoints_available": [
-            "/health",
-            "/docs",
-            "/test/config",
-            "/search-recipes",
-            "/chat-search/{query}",
-            "/chat",
-            "/agent-chat",
-            "/agent-chat/clear"
-        ]
+        "session_support": True,
+        "sentry_enabled": bool(SENTRY_DSN),
+        "environment": ENVIRONMENT
     }
 
-@app.post("/search-recipes", response_model=RecipeSearchResponse)
-async def search_recipes_endpoint(request: RecipeSearchRequest):
-    """
-    Search for recipes using semantic similarity search
-    
-    - **query**: Search query (e.g., "chicken soup", "fajitas", "dessert")
-    - **limit**: Number of results to return (1-10, default: 3)
-    """
+@app.post("/agent-chat", response_model=ChatResponse)
+def agent_chat(request: ChatRequest):
     try:
-        results = search_recipes(request.query, k=request.limit)
+        # Add context to Sentry
+        if SENTRY_DSN:
+            sentry_sdk.set_context("chat_request", {
+                "message_length": len(request.message),
+                "has_session_id": bool(request.session_id)
+            })
         
-        return RecipeSearchResponse(
-            results=results,
-            query=request.query,
-            total_results=len(results)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error searching recipes: {str(e)}"
-        )
-
-@app.get("/chat-search/{query}")
-async def chat_search_endpoint(query: str, limit: int = 3):
-    """
-    Simple endpoint for chat interface - returns formatted text response
-    
-    - **query**: Search query
-    - **limit**: Number of results (optional, default: 3)
-    """
-    try:
-        results = search_recipes(query, k=limit)
-        formatted_response = format_search_results_for_chat(results)
-        
-        return {
-            "query": query,
-            "response": formatted_response,
-            "total_results": len(results)
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error searching recipes: {str(e)}"
-        )
-
-@app.post("/chat")
-async def chat_endpoint(request: ChatRequest):
-    """
-    Chat endpoint for conversational recipe queries
-    Returns formatted response ready for display
-    """
-    try:
-        results = search_recipes(request.message, k=3)
-        formatted_response = format_search_results_for_chat(results)
-        
-        sources = [r.get("recipe_name", "Unknown") for r in results]
-        
-        return {
-            "response": formatted_response,
-            "sources_used": sources
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing chat message: {str(e)}"
-        )
-
-@app.post("/agent-chat")
-async def agent_chat_endpoint(request: ChatRequest):
-    """
-    Agent-powered chat endpoint for intelligent recipe conversations
-    Uses LangChain agent with memory and multiple tools
-    
-    - **message**: User message to the chatbot
-    
-    Returns intelligent response with context awareness and tool usage
-    """
-    try:
-        # Get the agent instance
         agent = get_agent()
+        result = agent.chat(request.message, session_id=request.session_id)
         
-        # Chat with the agent
-        result = agent.chat(request.message)
+        # Clean up old sessions periodically
+        agent.cleanup_old_sessions(max_sessions=100)
         
-        return {
-            "response": result["response"],
-            "sources_used": result.get("tools_used", [])
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing agent chat: {str(e)}"
+        return ChatResponse(
+            response=result["response"],
+            tools_used=result.get("tools_used", []),
+            session_id=result["session_id"]
         )
+    except Exception as e:
+        # Sentry will automatically capture this
+        if SENTRY_DSN:
+            sentry_sdk.capture_exception(e)
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/agent-chat/clear")
-async def clear_agent_memory():
-    """
-    Clear the agent's conversation memory
-    Useful for starting a fresh conversation
-    """
+@app.post("/clear-memory")
+def clear_memory(request: ClearMemoryRequest):
     try:
         agent = get_agent()
-        agent.clear_memory()
-        return {
-            "status": "success",
-            "message": "Conversation memory cleared"
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error clearing memory: {str(e)}"
-        )
-
-@app.get("/recipes/types")
-async def get_recipe_types():
-    """Get available recipe types for filtering"""
-    return {
-        "types": [
-            "chicken",
-            "meat",
-            "seafood",
-            "soup",
-            "dessert",
-            "sauce",
-            "beverage",
-            "general"
-        ]
-    }
-
-@app.get("/recipes/search-by-type/{recipe_type}")
-async def search_by_type(recipe_type: str, query: str = "", limit: int = 5):
-    """
-    Search recipes filtered by type
-    
-    - **recipe_type**: Type of recipe (chicken, soup, dessert, etc.)
-    - **query**: Optional search query within that type
-    - **limit**: Number of results
-    """
-    try:
-        if query:
-            results = search_recipes(query, k=limit, recipe_type=recipe_type)
+        success = agent.clear_memory(request.session_id)
+        
+        if success:
+            return {"status": "success", "message": "Conversation memory cleared"}
         else:
-            results = search_recipes(recipe_type, k=limit, recipe_type=recipe_type)
-        
-        formatted_response = format_search_results_for_chat(results)
-        
-        return {
-            "recipe_type": recipe_type,
-            "query": query,
-            "response": formatted_response,
-            "total_results": len(results)
-        }
+            return {"status": "not_found", "message": "Session not found"}
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error searching by type: {str(e)}"
-        )
+        if SENTRY_DSN:
+            sentry_sdk.capture_exception(e)
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.exception_handler(404)
-async def not_found_handler(request, exc):
-    return JSONResponse(
-        status_code=404,
-        content={
-            "error": "Endpoint not found",
-            "message": "The requested endpoint does not exist. Visit /docs for available endpoints."
-        }
-    )
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
-@app.exception_handler(500)
-async def internal_error_handler(request, exc):
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "message": "Something went wrong. Please try again later."
-        }
-    )
+@app.get("/sentry-test")
+def sentry_test():
+    """Test endpoint to verify Sentry is working"""
+    if not SENTRY_DSN:
+        return {"error": "Sentry not configured"}
+    
+    try:
+        # Intentionally cause an error
+        1 / 0
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        return {"message": "Error sent to Sentry! Check your Sentry dashboard."}
+
+@app.middleware("http")
+async def add_sentry_context(request: Request, call_next):
+    """Add request context to all Sentry events"""
+    if SENTRY_DSN:
+        sentry_sdk.set_context("request", {
+            "url": str(request.url),
+            "method": request.method,
+            "headers": dict(request.headers),
+        })
+    
+    response = await call_next(request)
+    return response
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

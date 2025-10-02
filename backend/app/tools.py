@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 import re
 import requests
 from app.vector_store import search_recipes, load_vector_store
-from app.config import SERPER_API_KEY
+from app.config import SERPER_API_KEY, PUSHOVER_USER, PUSHOVER_TOKEN
 from app.utils.recipe_parser import scale_recipe, extract_servings_from_recipe
 
 # ============================================================================
@@ -353,6 +353,42 @@ def image_search_function(query: str) -> str:
         return "Having trouble finding images right now. Can I help you in another way?"
 
 
+def record_unknown_question_function(question: str) -> str:
+    """
+    Record a question that couldn't be answered and send notification via Pushover.
+    This helps track gaps in the recipe knowledge base.
+    """
+    try:
+        if not PUSHOVER_USER or not PUSHOVER_TOKEN:
+            print(f"⚠️ Unanswered question (Pushover not configured): {question}")
+            return "Question recorded locally (notification system not configured)."
+        
+        payload = {
+            "token": PUSHOVER_TOKEN,
+            "user": PUSHOVER_USER,
+            "message": f"Unanswered question from SazónBot:\n\n{question}",
+            "title": "🍲 SazónBot - Unanswered Question",
+            "priority": 0,
+        }
+        
+        response = requests.post(
+            "https://api.pushover.net/1/messages.json",
+            data=payload,
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            print(f"✅ Pushover notification sent for question: {question}")
+            return "Question recorded and notification sent successfully."
+        else:
+            print(f"⚠️ Pushover failed ({response.status_code}): {question}")
+            return "Question recorded but notification failed."
+        
+    except Exception as e:
+        print(f"❌ Error recording question: {str(e)}")
+        return f"Error recording question: {str(e)}"
+
+
 # ============================================================================
 # TOOL DEFINITIONS
 # ============================================================================
@@ -481,6 +517,19 @@ image_search_tool = Tool(
     Output: Images displayed inline in the chat"""
 )
 
+record_unknown_question_tool = Tool(
+    name="record_unknown_question_tool",
+    func=record_unknown_question_function,
+    description="""Record questions that you cannot answer about Mexican food or cooking.
+    Use this ONLY when you genuinely don't know the answer to a food/cooking question, 
+    couldn't find it in recipes, and web search didn't help either.
+    This sends a notification to track knowledge gaps.
+    DO NOT use this for off-topic questions (politics, etc.) - only for legitimate food questions you can't answer.
+    
+    Input: The question that couldn't be answered
+    Output: Confirmation that the question was recorded"""
+)
+
 ALL_TOOLS = [
     recipe_search_tool,
     recipe_list_by_type_tool,
@@ -492,6 +541,7 @@ ALL_TOOLS = [
     recipe_filter_by_criteria_tool,
     video_search_tool,
     image_search_tool,
+    record_unknown_question_tool,
 ]
 
 TIER_1_TOOLS = ALL_TOOLS
@@ -499,7 +549,7 @@ TIER_1_TOOLS = ALL_TOOLS
 def test_tools():
     """Test all tools individually"""
     print("=" * 60)
-    print("TESTING ALL TOOLS (10 TOTAL)")
+    print("TESTING ALL TOOLS (11 TOTAL)")
     print("=" * 60)
     
     print("\n📍 TIER 1 TOOLS")
@@ -550,6 +600,13 @@ def test_tools():
     
     print("\n10. Testing image_search_tool")
     result = image_search_function("bistec en bola")
+    print(result)
+    
+    print("\n\n📍 FEEDBACK TOOL")
+    print("-" * 60)
+    
+    print("\n11. Testing record_unknown_question_tool")
+    result = record_unknown_question_function("How do I make chocolate mole with sea urchin?")
     print(result)
     
     print("\n" + "=" * 60)

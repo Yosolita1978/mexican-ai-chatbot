@@ -1,25 +1,36 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Get API keys
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-SERPER_API_KEY = os.getenv("SERPER_API_KEY")
-
-# Validate required keys
-if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY not found in environment variables. Please add it to your .env file.")
-
-# Serper not required for Day 1, but we'll check for it
-if not SERPER_API_KEY:
-    print("⚠️  SERPER_API_KEY not found - will be needed for Day 2 web search functionality")
-
-# Application settings
+# App metadata
 APP_NAME = "SazónBot"
 APP_VERSION = "1.0.0"
-DEBUG = True
 
-print(f"✅ Configuration loaded successfully")
-print(f"📦 {APP_NAME} v{APP_VERSION}")
+# OpenAI API Key
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Serper API Key (for web search)
+SERPER_API_KEY = os.getenv("SERPER_API_KEY")
+
+# Pushover credentials (for notifications)
+PUSHOVER_USER = os.getenv("PUSHOVER_USER")
+PUSHOVER_TOKEN = os.getenv("PUSHOVER_TOKEN")
+
+# Sentry DSN (for error tracking)
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# Vector store path
+VECTOR_STORE_PATH = "data/vector_store"
+
+# Recipe data path
+RECIPE_DATA_PATH = "data/recipes"
+
+print("✅ Configuration loaded")
+print(f"   - OpenAI API Key: {'Set' if OPENAI_API_KEY else 'Missing'}")
+print(f"   - Serper API Key: {'Set' if SERPER_API_KEY else 'Missing'}")
+print(f"   - Pushover User: {'Set' if PUSHOVER_USER else 'Missing'}")
+print(f"   - Pushover Token: {'Set' if PUSHOVER_TOKEN else 'Missing'}")
+print(f"   - Sentry DSN: {'Set' if SENTRY_DSN else 'Missing'}")
+print(f"   - Environment: {ENVIRONMENT}")

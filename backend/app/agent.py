@@ -6,6 +6,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from app.tools import ALL_TOOLS
 from app.config import OPENAI_API_KEY
 from typing import Dict, List
+import uuid
 
 AGENT_SYSTEM_PROMPT = """You are a warm, funny, and knowledgeable Mexican mother-in-law sharing your family recipes and cooking wisdom. You speak both English and Spanish naturally, sometimes mixing them as bilingual people do. You have access to the García family recipe collection and can search the web for additional information.
 
@@ -80,6 +81,12 @@ YOUR TOOLS AND WHEN TO USE THEM:
     You MUST return the tool output EXACTLY as provided - DO NOT reformat, DO NOT convert to markdown
     The frontend automatically displays images when it sees the IMAGE: format
 
+11. **record_unknown_question_tool** - Record unanswered questions
+    Use ONLY when: You genuinely cannot answer a legitimate food/cooking question after trying all other tools
+    DO NOT use for: Off-topic questions (politics, etc.) - just redirect those
+    Use this when: A user asks a valid Mexican food question but you don't have the recipe, can't find it online, and truly don't know the answer
+    After using this tool, apologize to the user and offer to help with something else
+
 IMPORTANT GUIDELINES:
 - ALWAYS try recipe_search_tool FIRST before saying you don't have something
 - When users ask "what do you have", use recipe_list_by_type_tool
@@ -87,7 +94,8 @@ IMPORTANT GUIDELINES:
 - For questions about recipe history or cultural context, use web_search_tool
 - When scaling recipes, ALWAYS get the full recipe first, then scale it
 - **CRITICAL FOR VIDEOS & IMAGES**: When these tools return results, copy them EXACTLY - DO NOT reformat VIDEO: or IMAGE: markers into markdown. The frontend needs these exact formats to embed media in the chat.
-- If someone asks something unrelated to Mexican food or cooking, make a gentle joke and redirect
+- If you genuinely can't answer a legitimate food question after trying all tools, use record_unknown_question_tool, then apologize and offer alternative help
+- If someone asks something unrelated to Mexican food or cooking, make a gentle joke and redirect (do NOT record these)
 - Remember context from previous messages in the conversation
 - Don't repeat yourself - if you already shared a recipe, reference it instead of repeating
 - Add a touch of humor when appropriate - cooking should be fun!
@@ -122,42 +130,65 @@ class RecipeAgent:
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
         
-        self.memory = ConversationBufferWindowMemory(
-            memory_key="chat_history",
-            return_messages=True,
-            k=10
-        )
-        
-        self.agent = create_openai_tools_agent(
-            llm=self.llm,
-            tools=ALL_TOOLS,
-            prompt=self.prompt
-        )
-        
-        self.agent_executor = AgentExecutor(
-            agent=self.agent,
-            tools=ALL_TOOLS,
-            memory=self.memory,
-            verbose=True,
-            max_iterations=15,
-            handle_parsing_errors=True
-        )
+        # Store sessions: session_id -> memory
+        self.sessions = {}
         
         print("✅ Recipe Agent initialized successfully")
         print(f"   - Model: GPT-4")
         print(f"   - Tools: {len(ALL_TOOLS)} available")
-        print(f"   - Memory: Last 10 messages")
+        print(f"   - Memory: Session-based (isolated per user)")
         print(f"   - Safety: Enabled")
         print(f"   - Media Embedding: Videos & Images")
+        print(f"   - Feedback: Pushover notifications")
     
-    def chat(self, user_message: str) -> Dict:
+    def _get_or_create_session(self, session_id: str):
+        """Get or create a session with its own memory"""
+        if session_id not in self.sessions:
+            memory = ConversationBufferWindowMemory(
+                memory_key="chat_history",
+                return_messages=True,
+                k=10
+            )
+            
+            agent = create_openai_tools_agent(
+                llm=self.llm,
+                tools=ALL_TOOLS,
+                prompt=self.prompt
+            )
+            
+            agent_executor = AgentExecutor(
+                agent=agent,
+                tools=ALL_TOOLS,
+                memory=memory,
+                verbose=True,
+                max_iterations=15,
+                handle_parsing_errors=True
+            )
+            
+            self.sessions[session_id] = {
+                'memory': memory,
+                'executor': agent_executor
+            }
+            
+            print(f"📝 Created new session: {session_id}")
+        
+        return self.sessions[session_id]
+    
+    def chat(self, user_message: str, session_id: str = None) -> Dict:
+        """Chat with session isolation"""
         try:
-            result = self.agent_executor.invoke({"input": user_message})
+            # Generate session ID if not provided
+            if not session_id:
+                session_id = str(uuid.uuid4())
+            
+            session = self._get_or_create_session(session_id)
+            result = session['executor'].invoke({"input": user_message})
             response = result.get("output", "")
             
             return {
                 "response": response,
-                "tools_used": []
+                "tools_used": [],
+                "session_id": session_id
             }
         
         except Exception as e:
@@ -165,56 +196,63 @@ class RecipeAgent:
             return {
                 "response": "¡Ay no! I ran into a little problem. Can you try asking that again?",
                 "tools_used": [],
-                "error": str(e)
+                "error": str(e),
+                "session_id": session_id or str(uuid.uuid4())
             }
     
-    def clear_memory(self):
-        self.memory.clear()
-        print("🧹 Conversation memory cleared")
+    def clear_memory(self, session_id: str):
+        """Clear memory for a specific session"""
+        if session_id in self.sessions:
+            self.sessions[session_id]['memory'].clear()
+            print(f"🧹 Conversation memory cleared for session: {session_id}")
+            return True
+        return False
+    
+    def cleanup_old_sessions(self, max_sessions: int = 100):
+        """Clean up old sessions to prevent memory bloat"""
+        if len(self.sessions) > max_sessions:
+            # Remove oldest sessions (simple FIFO)
+            sessions_to_remove = list(self.sessions.keys())[:-max_sessions]
+            for session_id in sessions_to_remove:
+                del self.sessions[session_id]
+            print(f"🧹 Cleaned up {len(sessions_to_remove)} old sessions")
 
 
+# Singleton pattern for the agent manager
 _agent_instance = None
 
 def get_agent() -> RecipeAgent:
+    """Get the global agent instance"""
     global _agent_instance
     if _agent_instance is None:
         _agent_instance = RecipeAgent()
     return _agent_instance
 
+
 def test_agent():
     print("\n" + "=" * 60)
-    print("TESTING RECIPE AGENT WITH ALL 10 TOOLS")
+    print("TESTING SESSION-BASED RECIPE AGENT")
     print("=" * 60 + "\n")
     
     agent = get_agent()
     
-    test_queries = [
-        "What chicken recipes do you have?",
-        "Show me the pozole recipe",
-        "Show me a video on making pozole",
-        "Show me a picture of bistec en bola",
-    ]
+    # Test with two different sessions
+    session1 = "test-session-1"
+    session2 = "test-session-2"
     
-    for i, query in enumerate(test_queries, 1):
-        print(f"\n{'='*60}")
-        print(f"TEST {i}: {query}")
-        print('='*60)
-        
-        result = agent.chat(query)
-        
-        print(f"\n🤖 AGENT RESPONSE:")
-        print(result['response'])
-        
-        if result.get('tools_used'):
-            print(f"\n🔧 TOOLS USED: {', '.join(result['tools_used'])}")
-        
-        if 'error' in result:
-            print(f"\n⚠️ ERROR: {result['error']}")
-        
-        print()
+    print("\n📝 Session 1: Asking about chicken")
+    result1 = agent.chat("What chicken recipes do you have?", session_id=session1)
+    print(f"Response: {result1['response'][:100]}...")
     
-    print("\n" + "=" * 60)
-    print("✅ AGENT TESTING COMPLETE")
+    print("\n📝 Session 2: Asking about pozole")
+    result2 = agent.chat("Show me pozole recipe", session_id=session2)
+    print(f"Response: {result2['response'][:100]}...")
+    
+    print("\n📝 Session 1: Continuing chicken conversation")
+    result3 = agent.chat("Tell me more about the first one", session_id=session1)
+    print(f"Response: {result3['response'][:100]}...")
+    
+    print("\n✅ Sessions are isolated - each user has their own conversation!")
     print("=" * 60 + "\n")
 
 if __name__ == "__main__":

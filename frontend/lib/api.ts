@@ -1,35 +1,48 @@
-import axios from 'axios';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-export interface RecipeSearchResponse {
-  query: string;
-  response: string;
-  total_results: number;
-}
-
-export interface AgentChatResponse {
-  response: string;
-  sources_used: string[];
-}
-
-export const searchRecipes = async (query: string): Promise<RecipeSearchResponse> => {
-  const response = await axios.get(`${API_BASE_URL}/chat-search/${encodeURIComponent(query)}`);
-  return response.data;
+// Store session ID in localStorage
+const getSessionId = (): string => {
+  if (typeof window === 'undefined') return '';
+  
+  let sessionId = localStorage.getItem('sazonbot_session_id');
+  if (!sessionId) {
+    sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('sazonbot_session_id', sessionId);
+  }
+  return sessionId;
 };
 
-export const agentChat = async (message: string): Promise<AgentChatResponse> => {
-  const response = await axios.post(`${API_BASE_URL}/agent-chat`, {
-    message: message
+export const agentChat = async (message: string) => {
+  const sessionId = getSessionId();
+  
+  const response = await fetch(`${API_URL}/agent-chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      message,
+      session_id: sessionId 
+    }),
   });
-  return response.data;
+
+  if (!response.ok) {
+    throw new Error('Failed to chat with agent');
+  }
+
+  return response.json();
 };
 
-export const clearAgentMemory = async (): Promise<void> => {
-  await axios.post(`${API_BASE_URL}/agent-chat/clear`);
-};
+export const clearAgentMemory = async () => {
+  const sessionId = getSessionId();
+  
+  const response = await fetch(`${API_URL}/clear-memory`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
 
-export const healthCheck = async (): Promise<{ status: string }> => {
-  const response = await axios.get(`${API_BASE_URL}/health`);
-  return response.data;
+  if (!response.ok) {
+    throw new Error('Failed to clear memory');
+  }
+
+  return response.json();
 };
