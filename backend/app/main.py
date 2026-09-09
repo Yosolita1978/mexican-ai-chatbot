@@ -1,10 +1,13 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.agent import get_agent
 from app.config import APP_NAME, APP_VERSION, OPENAI_API_KEY, SENTRY_DSN, ENVIRONMENT
 import os
-from typing import Optional
+import time
+from collections import defaultdict
+from threading import Lock
+from typing import Dict, List, Optional
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
@@ -45,9 +48,66 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Rate limiting ----------------------------------------------------
+# Every chat message costs OpenAI credits, so cap how many any single
+# caller can send. This lives in memory: it resets whenever Render
+# restarts or spins the instance down, and each instance counts on its
+# own. Good enough to stop casual abuse, not a hard security boundary.
+MAX_REQUESTS_PER_MINUTE = 10
+MAX_REQUESTS_PER_DAY = 100
+MAX_MESSAGE_LENGTH = 1000
+
+_request_log: Dict[str, List[float]] = defaultdict(list)
+_rate_limit_lock = Lock()
+
+
+def get_client_ip(request: Request) -> str:
+    """Find the real caller's IP.
+
+    Render puts a proxy in front of the app, so request.client.host is the
+    proxy, not the user. The original IP is the first entry of
+    X-Forwarded-For.
+    """
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def check_rate_limit(client_ip: str) -> None:
+    """Raise 429 if this IP has sent too many messages. Call before any work."""
+    now = time.time()
+    one_minute_ago = now - 60
+    one_day_ago = now - 86400
+
+    with _rate_limit_lock:
+        # Forget anything older than a day so the log cannot grow forever
+        for ip in list(_request_log.keys()):
+            _request_log[ip] = [t for t in _request_log[ip] if t > one_day_ago]
+            if not _request_log[ip]:
+                del _request_log[ip]
+
+        timestamps = _request_log[client_ip]
+        recent = [t for t in timestamps if t > one_minute_ago]
+
+        if len(recent) >= MAX_REQUESTS_PER_MINUTE:
+            raise HTTPException(
+                status_code=429,
+                detail="¡Espérate! You are sending messages too fast. Please wait a minute."
+            )
+
+        if len(timestamps) >= MAX_REQUESTS_PER_DAY:
+            raise HTTPException(
+                status_code=429,
+                detail="¡Ay! You have reached the daily limit. Come back tomorrow, cariño."
+            )
+
+        timestamps.append(now)
+
+
 class ChatRequest(BaseModel):
-    message: str
-    session_id: Optional[str] = None
+    message: str = Field(..., min_length=1, max_length=MAX_MESSAGE_LENGTH)
+    session_id: Optional[str] = Field(default=None, max_length=100)
 
 class ChatResponse(BaseModel):
     response: str
@@ -70,7 +130,11 @@ def read_root():
     }
 
 @app.post("/agent-chat", response_model=ChatResponse)
-def agent_chat(request: ChatRequest):
+def agent_chat(request: ChatRequest, http_request: Request):
+    # Checked before the try block on purpose: the except below turns every
+    # exception into a 500, which would swallow this 429.
+    check_rate_limit(get_client_ip(http_request))
+
     try:
         # Add context to Sentry
         if SENTRY_DSN:

@@ -19,7 +19,10 @@ PUSHOVER_TOKEN = os.getenv("PUSHOVER_TOKEN")
 
 # Sentry DSN (for error tracking)
 SENTRY_DSN = os.getenv("SENTRY_DSN")
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+# Defaults to "production" on purpose: a deploy that forgets to set this
+# should get low Sentry sampling, not 100%. Set ENVIRONMENT=development
+# in your local .env for full tracing while working.
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 
 # Vector store path
 VECTOR_STORE_PATH = "data/vector_store"

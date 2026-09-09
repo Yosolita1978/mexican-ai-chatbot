@@ -4,9 +4,11 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from app.tools import ALL_TOOLS
-from app.config import OPENAI_API_KEY
+from app.config import OPENAI_API_KEY, SENTRY_DSN
 from typing import Dict, List
 import uuid
+import traceback
+import sentry_sdk
 
 AGENT_SYSTEM_PROMPT = """You are a warm, funny, and knowledgeable Mexican mother-in-law sharing your family recipes and cooking wisdom. You speak both English and Spanish naturally, sometimes mixing them as bilingual people do. You have access to the García family recipe collection and can search the web for additional information.
 
@@ -188,7 +190,7 @@ class RecipeAgent:
                 tools=ALL_TOOLS,
                 memory=memory,
                 verbose=True,
-                max_iterations=15,
+                max_iterations=5,
                 handle_parsing_errors=True
             )
             
@@ -200,10 +202,10 @@ class RecipeAgent:
         return self.sessions[session_id]
     
     def chat(self, user_message: str, session_id: str = None) -> Dict:
+        if not session_id:
+            session_id = str(uuid.uuid4())
+        
         try:
-            if not session_id:
-                session_id = str(uuid.uuid4())
-            
             session = self._get_or_create_session(session_id)
             result = session['executor'].invoke({"input": user_message})
             response = result.get("output", "")
@@ -215,11 +217,18 @@ class RecipeAgent:
             }
         
         except Exception as e:
+            # Print the full traceback so the real error shows up in the Render logs
+            traceback.print_exc()
+            
+            # Send it to Sentry so a broken agent actually raises an alert
+            if SENTRY_DSN:
+                sentry_sdk.capture_exception(e)
+            
             return {
                 "response": "¡Ay no! I ran into a little problem. Can you try asking that again?",
                 "tools_used": [],
                 "error": str(e),
-                "session_id": session_id or str(uuid.uuid4())
+                "session_id": session_id
             }
     
     def clear_memory(self, session_id: str):

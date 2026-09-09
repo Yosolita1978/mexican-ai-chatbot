@@ -86,8 +86,14 @@ def web_search_function(query: str) -> str:
         if not SERPER_API_KEY:
             return "Web search is not available. Serper API key is not configured."
         
+        # Anchor the search to Mexican food in code, the same way
+        # ingredient_substitution_function and cooking_technique_function do.
+        # The tool description asks the model to stay on topic; this enforces
+        # it even if the model is talked into an off-topic query.
+        search_query = f"{query} Mexican food cooking recipe"
+        
         search = GoogleSerperAPIWrapper(serper_api_key=SERPER_API_KEY)
-        results = search.run(query)
+        results = search.run(search_query)
         
         if not results or results.strip() == "":
             return f"No web results found for: {query}"

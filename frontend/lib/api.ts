@@ -25,7 +25,20 @@ export const agentChat = async (message: string) => {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to chat with agent');
+    // The backend explains rate limits in `detail` ("¡Espérate! ..."), so show
+    // that instead of a generic error. FastAPI's 422 validation errors put an
+    // array in `detail`, which is why we only use it when it is a string.
+    const body: unknown = await response.json().catch(() => null);
+    let detail: string | null = null;
+
+    if (body && typeof body === 'object' && 'detail' in body) {
+      const value = (body as { detail: unknown }).detail;
+      if (typeof value === 'string') {
+        detail = value;
+      }
+    }
+
+    throw new Error(detail ?? 'Failed to chat with agent');
   }
 
   return response.json();

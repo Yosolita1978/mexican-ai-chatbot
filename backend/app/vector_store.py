@@ -16,6 +16,9 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 VECTOR_STORE_PATH = os.path.join(PROJECT_ROOT, "data", "recipe_vectors")
 RECIPE_PDF_PATH = os.path.join(PROJECT_ROOT, "data", "recipes.pdf")
 
+# The loaded FAISS index, kept in memory so every search does not re-read it
+_vector_store_cache = None
+
 def load_pdf_recipes(file_path: str = RECIPE_PDF_PATH):
     """Load recipes from PDF file using LangChain's PyPDFLoader"""
     #print(f"📄 Loading recipes from {file_path}...")
@@ -265,28 +268,44 @@ def create_vector_store():
     os.makedirs(os.path.dirname(VECTOR_STORE_PATH), exist_ok=True)
     vector_store.save_local(VECTOR_STORE_PATH)
     
+    # Rebuilding replaces whatever load_vector_store() may already be holding
+    global _vector_store_cache
+    _vector_store_cache = vector_store
+    
     #print(f"💾 Vector store saved to {VECTOR_STORE_PATH}/")
     #print("=" * 50)
     
     return vector_store
 
 def load_vector_store():
-    """Load existing FAISS vector store from disk"""
+    """Load the FAISS vector store, reusing it after the first load.
+
+    This used to read the index off disk and rebuild the embeddings client on
+    every single recipe search. The index does not change while the app is
+    running, so we keep one copy in memory - the same way get_agent() keeps
+    one agent.
+    """
+    global _vector_store_cache
+
+    if _vector_store_cache is not None:
+        return _vector_store_cache
+
     embeddings = OpenAIEmbeddings()
-    
+
     if os.path.exists(VECTOR_STORE_PATH):
         #print(f"📂 Loading existing vector store from {VECTOR_STORE_PATH}/")
-        vector_store = FAISS.load_local(
+        _vector_store_cache = FAISS.load_local(
             VECTOR_STORE_PATH, 
             embeddings,
             allow_dangerous_deserialization=True
         )
         #print("✅ Vector store loaded successfully")
-        return vector_store
     else:
         #print(f"⚠️  No existing vector store found at {VECTOR_STORE_PATH}/")
         #print("🔨 Creating new vector store...")
-        return create_vector_store()
+        _vector_store_cache = create_vector_store()
+
+    return _vector_store_cache
 
 def search_recipes(query: str, k: int = 1, recipe_type: str = None):
     """Search for recipes using similarity search - returns only best match"""
