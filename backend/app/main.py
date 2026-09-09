@@ -146,9 +146,6 @@ def agent_chat(request: ChatRequest, http_request: Request):
         agent = get_agent()
         result = agent.chat(request.message, session_id=request.session_id)
         
-        # Clean up old sessions periodically
-        agent.cleanup_old_sessions(max_sessions=100)
-        
         return ChatResponse(
             response=result["response"],
             tools_used=result.get("tools_used", []),

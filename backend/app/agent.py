@@ -210,6 +210,10 @@ class RecipeAgent:
             result = session['executor'].invoke({"input": user_message})
             response = result.get("output", "")
             
+            # The agent owns self.sessions, so it trims the dict itself.
+            # Callers only have to know about chat().
+            self.cleanup_old_sessions()
+            
             return {
                 "response": response,
                 "tools_used": [],
