@@ -33,6 +33,54 @@ def load_pdf_recipes(file_path: str = RECIPE_PDF_PATH):
     
     return documents
 
+# Recipe types are decided by the recipe NAME first, in most-specific-first
+# order, and only fall back to the ingredient text when the name says nothing.
+# The old version checked content early, so "caldo de pollo" appearing in the
+# ingredients of a vegetable dish was enough to file it under chicken, and
+# broad words like "carne" claimed pork and tuna dishes before their own
+# rules ever ran.
+RECIPE_TYPE_NAME_RULES = [
+    ("dessert",    ["postre", "dulce", "pastel", "flan", "galleta", "pay", "gelatina"]),
+    ("beverage",   ["bebida", "agua", "licuado", "atole", "té"]),
+    # "sopa de pasta" is a soup, so soup is checked before pasta.
+    ("soup",       ["sopa", "caldo", "pozole", "consomé", "mole de olla"]),
+    ("rice",       ["arroz"]),
+    ("beans",      ["enfrijoladas", "frijol"]),
+    ("pasta",      ["pasta", "spaghetti", "spaguetti", "fusilli", "codito", "tornillo"]),
+    # Proteins before "carne"/"picadillo", which would otherwise claim them.
+    ("seafood",    ["pescado", "atún", "atun", "ceviche", "bacalao"]),
+    ("pork",       ["puerco", "cerdo"]),
+    ("chicken",    ["pollo", "pollito", "pechuga", "tinga", "fajitas"]),
+    ("beef",       ["bistec", "carne", "albondigas", "picadillo"]),
+    ("vegetables", ["acelgas", "verduras", "nopales", "verdolagas"]),
+    # A dish "en salsa verde" is named after its sauce but is not one, so this
+    # runs last and only catches recipes no protein rule claimed.
+    ("sauce",      ["salsa", "guacamole", "pico de gallo"]),
+]
+
+RECIPE_TYPE_CONTENT_RULES = [
+    ("chicken", ["pollo", "pechuga"]),
+    ("pork",    ["carne de puerco", "maciza"]),
+    ("seafood", ["pescado", "atún", "filete"]),
+    ("beef",    ["carne de res", "molida de res"]),
+]
+
+
+def classify_recipe_type(recipe_name: str, text: str) -> str:
+    """Work out a recipe's type from its name, falling back to its contents."""
+    name_lower = recipe_name.lower()
+    for recipe_type, keywords in RECIPE_TYPE_NAME_RULES:
+        if any(word in name_lower for word in keywords):
+            return recipe_type
+
+    content_lower = text.lower()
+    for recipe_type, keywords in RECIPE_TYPE_CONTENT_RULES:
+        if any(word in content_lower for word in keywords):
+            return recipe_type
+
+    return "general"
+
+
 def extract_recipe_metadata(text: str) -> Dict:
     """Extract structured metadata from recipe text"""
     metadata = {
@@ -77,35 +125,7 @@ def extract_recipe_metadata(text: str) -> Dict:
     if re.search(r'Modo de preparaci[oó]n|Preparaci[oó]n|Instrucciones', text, re.IGNORECASE):
         metadata["has_instructions"] = True
     
-    recipe_name_lower = metadata["recipe_name"].lower()
-    content_lower = text.lower()
-    
-    if any(word in recipe_name_lower for word in ["postre", "dulce", "pastel", "flan", "galleta", "pay", "gelatina"]):
-        metadata["recipe_type"] = "dessert"
-    elif any(word in recipe_name_lower for word in ["sopa", "caldo", "pozole", "consomé"]):
-        metadata["recipe_type"] = "soup"
-    elif any(word in recipe_name_lower for word in ["salsa", "guacamole", "pico de gallo", "mole de olla"]):
-        metadata["recipe_type"] = "sauce"
-    elif any(word in recipe_name_lower for word in ["bebida", "agua", "licuado", "atole", "té"]):
-        metadata["recipe_type"] = "beverage"
-    elif any(word in recipe_name_lower for word in ["arroz"]):
-        metadata["recipe_type"] = "rice"
-    elif any(word in recipe_name_lower for word in ["pasta", "spaghetti", "fusilli", "codito", "tornillo"]):
-        metadata["recipe_type"] = "pasta"
-    elif any(word in recipe_name_lower for word in ["enfrijoladas", "frijol"]):
-        metadata["recipe_type"] = "beans"
-    elif any(word in recipe_name_lower for word in ["pozole"]):
-        metadata["recipe_type"] = "soup"
-    elif any(word in recipe_name_lower for word in ["pollo", "pechuga", "tinga", "fajitas"]) or any(word in content_lower for word in ["pollo", "pechuga"]):
-        metadata["recipe_type"] = "chicken"
-    elif any(word in recipe_name_lower for word in ["bistec", "carne", "albondigas", "picadillo"]) or "carne de res" in content_lower or "molida de res" in content_lower:
-        metadata["recipe_type"] = "beef"
-    elif any(word in recipe_name_lower for word in ["pescado", "atún", "atun", "ceviche"]) or any(word in content_lower for word in ["pescado", "atún", "filete"]):
-        metadata["recipe_type"] = "seafood"
-    elif any(word in recipe_name_lower for word in ["puerco", "cerdo"]) or "carne de puerco" in content_lower or "maciza" in content_lower:
-        metadata["recipe_type"] = "pork"
-    elif any(word in recipe_name_lower for word in ["acelgas", "verduras", "nopales"]):
-        metadata["recipe_type"] = "vegetables"
+    metadata["recipe_type"] = classify_recipe_type(metadata["recipe_name"], text)
     
     return metadata
 
@@ -307,15 +327,38 @@ def load_vector_store():
 
     return _vector_store_cache
 
+def get_available_recipe_types() -> List[str]:
+    """
+    List the recipe types actually present in the index.
+
+    The tools used to advertise a hardcoded list that included types no
+    recipe had, so asking for desserts produced "No dessert recipes found.
+    Available types: ... dessert ...". Reading the real values keeps the
+    two from drifting apart again.
+    """
+    vector_store = load_vector_store()
+    types = {
+        doc.metadata.get("recipe_type", "general")
+        for doc in vector_store.docstore._dict.values()
+    }
+    types.discard("general")
+    return sorted(types)
+
+
 def search_recipes(query: str, k: int = 1, recipe_type: str = None):
     """Search for recipes using similarity search - returns only best match"""
     vector_store = load_vector_store()
     
     if recipe_type:
+        # FAISS applies `filter` AFTER retrieving `fetch_k` chunks, and fetch_k
+        # defaults to 20 - so without this, asking for k=20 of a given type only
+        # ever sees the 20 nearest chunks overall. The index holds ~70 chunks,
+        # so fetching well past that makes the type filter exact.
         results = vector_store.similarity_search_with_score(
             query, 
             k=k,
-            filter={"recipe_type": recipe_type}
+            filter={"recipe_type": recipe_type},
+            fetch_k=max(k * 10, 200)
         )
     else:
         results = vector_store.similarity_search_with_score(query, k=k)

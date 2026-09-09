@@ -3,10 +3,31 @@ from langchain_community.utilities import GoogleSerperAPIWrapper
 from typing import List, Dict, Optional
 import re
 import requests
-from app.vector_store import search_recipes, load_vector_store
-from app.config import SERPER_API_KEY, PUSHOVER_USER, PUSHOVER_TOKEN
+from app.vector_store import search_recipes, load_vector_store, get_available_recipe_types
+from app.config import SERPER_API_KEY, PUSHOVER_USER, PUSHOVER_TOKEN, SENTRY_DSN
+import traceback
+import sentry_sdk
 from app.utils.recipe_parser import scale_recipe, extract_servings_from_recipe
 from pydantic import BaseModel, Field
+
+
+def _report_error(error: Exception, context: str) -> None:
+    """
+    Send a tool failure to the Render logs and to Sentry.
+
+    Tools used to swallow their exceptions and hand the text back to the
+    model as if it were an answer, so a broken vector store looked like a
+    bot that simply found nothing. Every failure now gets reported; the
+    caller then decides whether to re-raise or degrade gracefully.
+    """
+    print(f"❌ Tool error in {context}: {error}")
+    traceback.print_exc()
+
+    if SENTRY_DSN:
+        with sentry_sdk.push_scope() as scope:
+            scope.set_tag("tool", context)
+            sentry_sdk.capture_exception(error)
+
 
 def recipe_search_function(query: str) -> str:
     try:
@@ -29,7 +50,8 @@ def recipe_search_function(query: str) -> str:
         
         return "\n".join(formatted_results)
     except Exception as e:
-        return f"Error searching recipes: {str(e)}"
+        _report_error(e, "recipe_search_tool")
+        raise
 
 
 def recipe_list_by_type_function(recipe_type: str) -> str:
@@ -38,7 +60,8 @@ def recipe_list_by_type_function(recipe_type: str) -> str:
         results = search_recipes(recipe_type, k=20, recipe_type=recipe_type)
         
         if not results:
-            return f"No {recipe_type} recipes found. Available types: chicken, soup, dessert, beef, seafood, pork, pasta, sauce, beverage, rice, beans, vegetables."
+            available = ", ".join(get_available_recipe_types())
+            return f"No {recipe_type} recipes found. Available types: {available}."
         
         recipe_names = []
         seen_names = set()
@@ -53,7 +76,8 @@ def recipe_list_by_type_function(recipe_type: str) -> str:
         
         return response
     except Exception as e:
-        return f"Error listing recipes: {str(e)}"
+        _report_error(e, "recipe_list_by_type_tool")
+        raise
 
 
 def get_full_recipe_function(recipe_name: str) -> str:
@@ -78,7 +102,8 @@ def get_full_recipe_function(recipe_name: str) -> str:
         
         return response
     except Exception as e:
-        return f"Error retrieving recipe: {str(e)}"
+        _report_error(e, "get_full_recipe_tool")
+        raise
 
 
 def web_search_function(query: str) -> str:
@@ -100,7 +125,8 @@ def web_search_function(query: str) -> str:
         
         return f"**Web Search Results for '{query}':**\n\n{results}"
     except Exception as e:
-        return f"Error searching the web: {str(e)}"
+        _report_error(e, "web_search_tool")
+        return f"I couldn't search the web for '{query}' just now. Ask me about the family recipes instead?"
 
 
 class RecipeScaleInput(BaseModel):
@@ -119,7 +145,8 @@ def recipe_scale_function_structured(recipe_text: str, target_servings: int) -> 
         return scaled_result
         
     except Exception as e:
-        return f"Error scaling recipe: {str(e)}"
+        _report_error(e, "recipe_scale_tool")
+        return "I couldn't scale that recipe, but the original above is still good. Try telling me the recipe and serving count again?"
 
 
 def ingredient_substitution_function(ingredient: str, reason: str = "") -> str:
@@ -140,7 +167,8 @@ def ingredient_substitution_function(ingredient: str, reason: str = "") -> str:
         return f"**Substitutes for {ingredient}:**\n\n{results}"
         
     except Exception as e:
-        return f"Error finding substitutes: {str(e)}"
+        _report_error(e, "ingredient_substitution_tool")
+        return f"I couldn't look up substitutes for '{ingredient}' right now. Common ones: cilantro → parsley, epazote → oregano, tomatillos → green tomatoes + lime."
 
 
 def cooking_technique_function(technique: str) -> str:
@@ -159,7 +187,8 @@ def cooking_technique_function(technique: str) -> str:
         return f"**How to: {technique}**\n\n{results}"
         
     except Exception as e:
-        return f"Error looking up technique: {str(e)}"
+        _report_error(e, "cooking_technique_tool")
+        return f"I couldn't look up '{technique}' right now. Ask me and I'll explain what I know from the recipes themselves."
 
 
 def recipe_filter_by_criteria_function(criteria: str) -> str:
@@ -167,7 +196,7 @@ def recipe_filter_by_criteria_function(criteria: str) -> str:
         criteria_lower = criteria.lower()
         
         recipe_type = None
-        types = ['chicken', 'soup', 'dessert', 'beef', 'seafood', 'pork', 'pasta', 'sauce', 'beverage', 'rice', 'beans', 'vegetables']
+        types = get_available_recipe_types()
         for t in types:
             if t in criteria_lower:
                 recipe_type = t
@@ -198,7 +227,8 @@ def recipe_filter_by_criteria_function(criteria: str) -> str:
         return response
         
     except Exception as e:
-        return f"Error filtering recipes: {str(e)}"
+        _report_error(e, "recipe_filter_by_criteria_tool")
+        raise
 
 
 def video_search_function(query: str) -> str:
@@ -258,7 +288,7 @@ def video_search_function(query: str) -> str:
     except requests.Timeout:
         return "Video search timed out. Let me give you the written recipe instead!"
     except Exception as e:
-        # print(f"Video search error: {str(e)}")
+        _report_error(e, "video_search_tool")
         return "Having trouble finding videos right now. Would you like me to walk you through the recipe steps instead?"
 
 
@@ -312,7 +342,7 @@ def image_search_function(query: str) -> str:
     except requests.Timeout:
         return "Image search timed out. Try describing what you're looking for instead."
     except Exception as e:
-        # print(f"Image search error: {str(e)}")
+        _report_error(e, "image_search_tool")
         return "Having trouble finding images right now. Can I help you in another way?"
 
 
@@ -344,8 +374,8 @@ def record_unknown_question_function(question: str) -> str:
             return "Question recorded but notification failed."
         
     except Exception as e:
-        # print(f"❌ Error recording question: {str(e)}")
-        return f"Error recording question: {str(e)}"
+        _report_error(e, "record_unknown_question_tool")
+        return "Question recorded locally."
 
 
 recipe_search_tool = Tool(
@@ -365,11 +395,11 @@ recipe_list_by_type_tool = Tool(
     func=recipe_list_by_type_function,
     description="""List all available recipes filtered by a specific type/category. 
     Use this when users want to browse or see all recipes in a category (e.g., "what chicken recipes do you have?", 
-    "show me all desserts", "list your soups"). Returns ONLY recipe names, not full content.
+    "show me all soups", "list your seafood dishes"). Returns ONLY recipe names, not full content.
     
-    Available types: chicken, soup, dessert, beef, seafood, pork, pasta, sauce, beverage, rice, beans, vegetables
+    Available types: beans, beef, chicken, pasta, pork, rice, seafood, soup, vegetables
     
-    Input: Recipe type as a string (e.g., "chicken", "soup", "dessert")
+    Input: Recipe type as a string (e.g., "chicken", "soup", "seafood")
     Output: List of recipe names in that category"""
 )
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Image from 'next/image';
-import { agentChat, clearAgentMemory } from '@/lib/api';
+import { agentChat, clearAgentMemory, ApiError } from '@/lib/api';
 import { translations, detectLanguage, Language } from '@/lib/translations';
 
 const LOADING_MESSAGES = {
@@ -72,10 +72,16 @@ export default function Home() {
       setMessages(prev => [...prev, { role: 'assistant', content: response.response }]);
     } catch (err) {
       console.error('Error chatting with agent:', err);
-      setError('Failed to connect to recipe service.');
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: '¡Ay no! I ran into a little problem. Can you try asking that again, mijo?' 
+
+      // api.ts puts the backend's `detail` on the Error, and that is where the
+      // rate-limit text ("¡Espérate! ...") lives. Showing it beats reporting
+      // every failure as a connection problem when the service answered fine.
+      const detail = err instanceof ApiError ? err.detail : null;
+
+      setError(detail ?? t.connectionError);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: detail ?? '¡Ay no! I ran into a little problem. Can you try asking that again, mijo?'
       }]);
     } finally {
       setLoading(false);
